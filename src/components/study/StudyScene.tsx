@@ -26,6 +26,8 @@ const palette = {
   ink: "#40565a",
 };
 
+const SHOW_LEGACY_FURNITURE = false;
+
 type Point = [number, number, number];
 
 type InteractiveObjectProps = {
@@ -220,6 +222,257 @@ function RoomShell() {
           metalness={0}
           roughness={0.88}
         />
+      </RoundedBox>
+    </group>
+  );
+}
+
+function RetroDesk() {
+  const legPositions: Point[] = [
+    [-2.2, -1.52, -1.35],
+    [-2.2, -1.52, 1.35],
+    [2.2, -1.52, -1.35],
+  ];
+  const drawerPositions = [-0.35, -1.1, -1.85, -2.6];
+  const upperDividers = [-1.55, 0, 1.55];
+
+  return (
+    <group position={[-0.965, 0.84, -1.94]}>
+      <RoundedBox
+        args={[5.25, 0.24, 3.5]}
+        radius={0.08}
+        smoothness={8}
+        castShadow
+        receiveShadow
+      >
+        <meshPhysicalMaterial
+          clearcoat={0.09}
+          clearcoatRoughness={0.78}
+          color="#d7a36a"
+          roughness={0.72}
+          specularIntensity={0.34}
+        />
+      </RoundedBox>
+      <RoundedBox
+        args={[5.02, 0.32, 0.14]}
+        position={[0, -0.28, 1.645]}
+        radius={0.06}
+        smoothness={8}
+        castShadow
+      >
+        <meshPhysicalMaterial color="#b97945" roughness={0.76} />
+      </RoundedBox>
+      <RoundedBox
+        args={[0.14, 0.32, 3.14]}
+        position={[-2.55, -0.28, 0]}
+        radius={0.06}
+        smoothness={8}
+        castShadow
+      >
+        <meshPhysicalMaterial color="#b97945" roughness={0.76} />
+      </RoundedBox>
+      {legPositions.map(([x, y, z]) => (
+        <RoundedBox
+          key={`${x}-${z}`}
+          args={[0.28, 2.8, 0.28]}
+          position={[x, y, z]}
+          radius={0.1}
+          smoothness={8}
+          castShadow
+        >
+          <meshPhysicalMaterial color="#bd824e" roughness={0.76} />
+        </RoundedBox>
+      ))}
+      <RoundedBox
+        args={[1.72, 2.8, 1.16]}
+        position={[1.69, -1.52, 1]}
+        radius={0.12}
+        smoothness={10}
+        castShadow
+        receiveShadow
+      >
+        <meshPhysicalMaterial color="#ca925a" roughness={0.74} />
+      </RoundedBox>
+      {drawerPositions.map((y) => (
+        <group key={y}>
+          <RoundedBox
+            args={[1.5, 0.56, 0.07]}
+            position={[1.69, y, 1.615]}
+            radius={0.055}
+            smoothness={8}
+          >
+            <meshPhysicalMaterial color="#dea86d" roughness={0.7} />
+          </RoundedBox>
+          <RoundedBox
+            args={[0.46, 0.055, 0.045]}
+            position={[1.69, y + 0.02, 1.675]}
+            radius={0.025}
+            smoothness={6}
+          >
+            <meshPhysicalMaterial
+              clearcoat={0.18}
+              clearcoatRoughness={0.64}
+              color="#8f603d"
+              roughness={0.6}
+            />
+          </RoundedBox>
+        </group>
+      ))}
+      <RoundedBox
+        args={[4.75, 3.9, 0.12]}
+        position={[0, 2.07, -1.685]}
+        radius={0.08}
+        smoothness={8}
+        castShadow
+      >
+        <meshPhysicalMaterial color="#c88f59" roughness={0.78} />
+      </RoundedBox>
+      <RoundedBox
+        args={[4.98, 0.18, 0.5]}
+        position={[0, 4.11, -1.49]}
+        radius={0.07}
+        smoothness={8}
+        castShadow
+      >
+        <meshPhysicalMaterial color="#d7a36a" roughness={0.72} />
+      </RoundedBox>
+      <RoundedBox
+        args={[4.76, 0.16, 0.5]}
+        position={[0, 2.05, -1.49]}
+        radius={0.06}
+        smoothness={8}
+        castShadow
+      >
+        <meshPhysicalMaterial color="#d7a36a" roughness={0.72} />
+      </RoundedBox>
+      {[-2.3, 2.3].map((x) => (
+        <RoundedBox
+          key={`hutch-side-${x}`}
+          args={[0.18, 3.9, 0.5]}
+          position={[x, 2.07, -1.49]}
+          radius={0.06}
+          smoothness={8}
+          castShadow
+        >
+          <meshPhysicalMaterial color="#bd824e" roughness={0.76} />
+        </RoundedBox>
+      ))}
+      {upperDividers.map((x) => (
+        <RoundedBox
+          key={`hutch-divider-${x}`}
+          args={[0.14, 1.89, 0.48]}
+          position={[x, 3.075, -1.49]}
+          radius={0.045}
+          smoothness={7}
+          castShadow
+        >
+          <meshPhysicalMaterial color="#bd824e" roughness={0.76} />
+        </RoundedBox>
+      ))}
+      {[-1.9, 1.9].map((x) => (
+        <RoundedBox
+          key={`side-shelf-${x}`}
+          args={[0.72, 0.14, 0.48]}
+          position={[x, 1.05, -1.49]}
+          radius={0.05}
+          smoothness={7}
+          castShadow
+        >
+          <meshPhysicalMaterial color="#d7a36a" roughness={0.72} />
+        </RoundedBox>
+      ))}
+    </group>
+  );
+}
+
+function RetroChair() {
+  const chairScale = 1.35;
+  const floorTop = -2.08;
+  const floorScaleOffset = floorTop * (1 - chairScale);
+  const shortLegPositions: Point[] = [
+    [-0.72, -1.34, 0.62],
+    [0.72, -1.34, 0.62],
+  ];
+
+  return (
+    <group
+      position={[-1.8, floorScaleOffset, 2.05]}
+      rotation={[0, Math.PI - THREE.MathUtils.degToRad(20), 0]}
+      scale={chairScale}
+    >
+      <RoundedBox
+        args={[1.75, 0.22, 1.45]}
+        position={[0, -0.49, 0]}
+        radius={0.13}
+        smoothness={8}
+        castShadow
+        receiveShadow
+      >
+        <meshPhysicalMaterial
+          clearcoat={0.08}
+          clearcoatRoughness={0.78}
+          color="#d9a467"
+          roughness={0.72}
+        />
+      </RoundedBox>
+      {[-0.72, 0.72].map((x) => (
+        <RoundedBox
+          key={`chair-back-leg-${x}`}
+          args={[0.19, 3.55, 0.19]}
+          position={[x, -0.305, -0.62]}
+          radius={0.075}
+          smoothness={8}
+          castShadow
+        >
+          <meshPhysicalMaterial color="#b97a45" roughness={0.76} />
+        </RoundedBox>
+      ))}
+      {shortLegPositions.map(([x, y, z]) => (
+        <RoundedBox
+          key={`chair-front-leg-${x}`}
+          args={[0.19, 1.48, 0.19]}
+          position={[x, y, z]}
+          radius={0.075}
+          smoothness={8}
+          castShadow
+        >
+          <meshPhysicalMaterial color="#b97a45" roughness={0.76} />
+        </RoundedBox>
+      ))}
+      <RoundedBox
+        args={[1.65, 1.25, 0.19]}
+        position={[0, 0.75, -0.62]}
+        radius={0.16}
+        smoothness={10}
+        castShadow
+      >
+        <meshPhysicalMaterial
+          clearcoat={0.07}
+          clearcoatRoughness={0.8}
+          color="#cf9458"
+          roughness={0.74}
+        />
+      </RoundedBox>
+      {[-0.72, 0.72].map((x) => (
+        <RoundedBox
+          key={`chair-side-rail-${x}`}
+          args={[0.16, 0.16, 1.24]}
+          position={[x, -1.55, 0]}
+          radius={0.06}
+          smoothness={7}
+          castShadow
+        >
+          <meshPhysicalMaterial color="#b97a45" roughness={0.77} />
+        </RoundedBox>
+      ))}
+      <RoundedBox
+        args={[1.58, 0.16, 0.16]}
+        position={[0, -1.55, 0.62]}
+        radius={0.06}
+        smoothness={7}
+        castShadow
+      >
+        <meshPhysicalMaterial color="#b97a45" roughness={0.77} />
       </RoundedBox>
     </group>
   );
@@ -697,16 +950,22 @@ function StudyWorld({
 
       <group position={[0, 0, 0]}>
         <RoomShell />
-        <WindowAndCurtains />
-        <Desk />
-        <ChairAndTable />
-        <Decor />
-        <AboutPortrait onEnter={onEnter} />
-        <ProjectComputer onEnter={onEnter} />
-        <EducationBooks onEnter={onEnter} />
-        <ResearchNotebook onEnter={onEnter} />
-        <ExperienceCalendar onEnter={onEnter} />
-        <PortfolioCamera onEnter={onEnter} />
+        <RetroDesk />
+        <RetroChair />
+        {SHOW_LEGACY_FURNITURE && (
+          <>
+            <WindowAndCurtains />
+            <Desk />
+            <ChairAndTable />
+            <Decor />
+            <AboutPortrait onEnter={onEnter} />
+            <ProjectComputer onEnter={onEnter} />
+            <EducationBooks onEnter={onEnter} />
+            <ResearchNotebook onEnter={onEnter} />
+            <ExperienceCalendar onEnter={onEnter} />
+            <PortfolioCamera onEnter={onEnter} />
+          </>
+        )}
       </group>
 
       <CameraRig focus={focus} entering={entering} />
