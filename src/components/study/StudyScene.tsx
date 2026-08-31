@@ -20,7 +20,6 @@ import * as THREE from "three";
 const palette = {
   shell: "#f5e5e2",
   shellDark: "#82bac3",
-  floorPink: "#f2c6d0",
   wall: "#fff7ef",
   cream: "#fff8e9",
   mint: "#badcca",
@@ -50,7 +49,7 @@ type InteractiveObjectProps = {
   section: string;
   href: string;
   onEnter: (position: Point, href: string) => void;
-  children: ReactNode;
+  children: ReactNode | ((hovered: boolean) => ReactNode);
   rotation?: Point;
   labelPosition?: Point;
 };
@@ -115,7 +114,7 @@ function InteractiveObject({
         onEnter(position, href);
       }}
     >
-      {children}
+      {typeof children === "function" ? children(hovered) : children}
       {hovered && (
         <Html
           center
@@ -1807,7 +1806,88 @@ function RetroDesk() {
   );
 }
 
-function RetroLaptop() {
+function useClayTexture() {
+  const texture = useMemo(() => {
+    const size = 64;
+    const data = new Uint8Array(size * size * 4);
+
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) {
+        const index = (y * size + x) * 4;
+        const random =
+          Math.sin((x + 1) * 12.9898 + (y + 1) * 78.233) * 43758.5453;
+        const grain = random - Math.floor(random);
+        const softWave =
+          Math.sin(x * 0.34) * 3.5 + Math.cos(y * 0.27) * 3.5;
+        const value = THREE.MathUtils.clamp(
+          Math.round(126 + softWave + (grain - 0.5) * 12),
+          0,
+          255,
+        );
+
+        data[index] = value;
+        data[index + 1] = value;
+        data[index + 2] = value;
+        data[index + 3] = 255;
+      }
+    }
+
+    const map = new THREE.DataTexture(
+      data,
+      size,
+      size,
+      THREE.RGBAFormat,
+    );
+    map.wrapS = THREE.RepeatWrapping;
+    map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(5, 5);
+    map.minFilter = THREE.LinearFilter;
+    map.magFilter = THREE.LinearFilter;
+    map.needsUpdate = true;
+    return map;
+  }, []);
+
+  useEffect(() => () => texture.dispose(), [texture]);
+  return texture;
+}
+
+function SoftClayMaterial({
+  color,
+  texture,
+  roughness = 0.76,
+  bumpScale = 0.014,
+  clearcoat = 0.08,
+  clearcoatRoughness = 0.82,
+  specularIntensity = 0.36,
+}: {
+  color: THREE.ColorRepresentation;
+  texture: THREE.Texture;
+  roughness?: number;
+  bumpScale?: number;
+  clearcoat?: number;
+  clearcoatRoughness?: number;
+  specularIntensity?: number;
+}) {
+  return (
+    <meshPhysicalMaterial
+      bumpMap={texture}
+      bumpScale={bumpScale}
+      clearcoat={clearcoat}
+      clearcoatRoughness={clearcoatRoughness}
+      color={color}
+      ior={1.42}
+      metalness={0}
+      roughness={roughness}
+      sheen={0.14}
+      sheenColor="#fff1ea"
+      specularIntensity={specularIntensity}
+    />
+  );
+}
+
+function RoomShell() {
+  const clayTexture = useClayTexture();
+
   return (
     <group
       position={[-2.08, 0.96, -1.4]}
@@ -1815,122 +1895,34 @@ function RetroLaptop() {
       scale={1.25}
     >
       <RoundedBox
-        args={[1.45, 0.09, 0.95]}
-        position={[0, 0.045, 0]}
-        radius={0.055}
-        smoothness={8}
-        castShadow
+        args={[8.35, 0.7, 8.35]}
+        position={[0, -2.36, -0.1]}
+        radius={0.26}
+        smoothness={10}
+        receiveShadow
       >
-        <meshPhysicalMaterial
-          clearcoat={0.14}
-          clearcoatRoughness={0.58}
-          color="#dfe4e1"
-          metalness={0.04}
-          roughness={0.56}
+        <SoftClayMaterial
+          color="#efbdc7"
+          texture={clayTexture}
+          roughness={0.68}
+          bumpScale={0.012}
+          clearcoat={0.16}
+          clearcoatRoughness={0.7}
+          specularIntensity={0.44}
         />
       </RoundedBox>
       <RoundedBox
-        args={[1.16, 0.018, 0.48]}
-        position={[0, 0.098, -0.04]}
-        radius={0.025}
-        smoothness={6}
-      >
-        <meshPhysicalMaterial color="#65777a" roughness={0.7} />
-      </RoundedBox>
-      {[-0.15, -0.05, 0.05, 0.15].map((z) => (
-        <RoundedBox
-          key={`keyboard-row-${z}`}
-          args={[1.02, 0.012, 0.018]}
-          position={[0, 0.111, z - 0.05]}
-          radius={0.006}
-          smoothness={4}
-        >
-          <meshStandardMaterial color="#b7c2c0" roughness={0.72} />
-        </RoundedBox>
-      ))}
-      <RoundedBox
-        args={[0.42, 0.014, 0.22]}
-        position={[0, 0.11, 0.3]}
-        radius={0.025}
-        smoothness={6}
-      >
-        <meshStandardMaterial color="#c6cecb" roughness={0.68} />
-      </RoundedBox>
-      <mesh position={[0, 0.1, -0.43]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.045, 0.045, 1.2, 16]} />
-        <meshPhysicalMaterial color="#aeb9b7" roughness={0.58} />
-      </mesh>
-      <group
-        position={[0, 0.09, -0.43]}
-        rotation={[-THREE.MathUtils.degToRad(13), 0, 0]}
-      >
-        <RoundedBox
-          args={[1.4, 0.9, 0.065]}
-          position={[0, 0.45, 0]}
-          radius={0.065}
-          smoothness={8}
-          castShadow
-        >
-          <meshPhysicalMaterial
-            clearcoat={0.12}
-            clearcoatRoughness={0.62}
-            color="#d7dedb"
-            metalness={0.04}
-            roughness={0.54}
-          />
-        </RoundedBox>
-        <RoundedBox
-          args={[1.18, 0.67, 0.018]}
-          position={[0, 0.48, 0.043]}
-          radius={0.035}
-          smoothness={7}
-        >
-          <meshPhysicalMaterial
-            clearcoat={0.18}
-            clearcoatRoughness={0.46}
-            color="#8fc6ce"
-            emissive="#83bac3"
-            emissiveIntensity={0.12}
-            roughness={0.42}
-          />
-        </RoundedBox>
-        <mesh position={[0, 0.84, 0.044]}>
-          <sphereGeometry args={[0.022, 12, 10]} />
-          <meshStandardMaterial color="#718083" roughness={0.56} />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
-function RetroChair() {
-  const chairScale = 1.35;
-  const floorTop = -2.08;
-  const floorScaleOffset = floorTop * (1 - chairScale);
-  const shortLegPositions: Point[] = [
-    [-0.72, -1.34, 0.62],
-    [0.72, -1.34, 0.62],
-  ];
-
-  return (
-    <group
-      position={[-1.8, floorScaleOffset, 2.05]}
-      rotation={[0, Math.PI - THREE.MathUtils.degToRad(20), 0]}
-      scale={chairScale}
-    >
-      <RoundedBox
-        args={[1.75, 0.22, 1.45]}
-        position={[0, -0.49, 0]}
-        radius={0.13}
-        smoothness={8}
-        castShadow
+        args={[8.2, 8.5, 0.5]}
+        position={[0, 1.87, -3.95]}
+        radius={0.26}
+        smoothness={10}
         receiveShadow
       >
-        <meshPhysicalMaterial
-          clearcoat={0.08}
-          clearcoatRoughness={0.78}
-          color="#d9a467"
-          roughness={0.72}
+        <SoftClayMaterial
+          color={palette.wall}
+          texture={clayTexture}
+          roughness={0.82}
+          bumpScale={0.018}
         />
       </RoundedBox>
       {[-0.72, 0.72].map((x) => (
@@ -1958,17 +1950,51 @@ function RetroChair() {
         </RoundedBox>
       ))}
       <RoundedBox
-        args={[1.65, 1.25, 0.19]}
-        position={[0, 0.75, -0.62]}
-        radius={0.16}
+        args={[0.5, 8.5, 8.2]}
+        position={[-3.85, 1.87, -0.1]}
+        radius={0.26}
+        smoothness={10}
+        receiveShadow
+      >
+        <SoftClayMaterial
+          color={palette.shell}
+          texture={clayTexture}
+          roughness={0.8}
+          bumpScale={0.018}
+        />
+      </RoundedBox>
+      <RoundedBox
+        args={[8.35, 0.38, 0.42]}
+        position={[0, 5.96, -3.62]}
+        radius={0.17}
         smoothness={10}
         castShadow
       >
-        <meshPhysicalMaterial
-          clearcoat={0.07}
-          clearcoatRoughness={0.8}
-          color="#cf9458"
-          roughness={0.74}
+        <SoftClayMaterial
+          color="#eea0b3"
+          texture={clayTexture}
+          roughness={0.64}
+          bumpScale={0.012}
+          clearcoat={0.18}
+          clearcoatRoughness={0.66}
+          specularIntensity={0.46}
+        />
+      </RoundedBox>
+      <RoundedBox
+        args={[0.42, 0.38, 8.28]}
+        position={[-3.61, 5.96, -0.1]}
+        radius={0.17}
+        smoothness={10}
+        castShadow
+      >
+        <SoftClayMaterial
+          color="#eea0b3"
+          texture={clayTexture}
+          roughness={0.64}
+          bumpScale={0.012}
+          clearcoat={0.18}
+          clearcoatRoughness={0.66}
+          specularIntensity={0.46}
         />
       </RoundedBox>
       {[-0.72, 0.72].map((x) => (
@@ -2058,7 +2084,7 @@ function Desk() {
       >
         <meshStandardMaterial color={palette.blue} roughness={0.76} />
       </RoundedBox>
-      {[-0.55, 0, 0.55].map((y) => (
+      {[-0.55, 0].map((y) => (
         <group key={y} position={[1.29, y, 0.73]}>
           <RoundedBox args={[1.08, 0.38, 0.09]} radius={0.07}>
             <meshStandardMaterial color="#a5dce0" roughness={0.74} />
@@ -2353,77 +2379,197 @@ function ResearchNotebook({ onEnter }: ObjectSetProps) {
   );
 }
 
-function ExperienceCalendar({ onEnter }: ObjectSetProps) {
+function AnimatedFileFolder({ pulled }: { pulled: boolean }) {
+  const folder = useRef<THREE.Group>(null);
+
+  useFrame((_, delta) => {
+    if (!folder.current) return;
+    folder.current.position.y = THREE.MathUtils.damp(
+      folder.current.position.y,
+      pulled ? 0.7 : 0.43,
+      8,
+      delta,
+    );
+    folder.current.position.z = THREE.MathUtils.damp(
+      folder.current.position.z,
+      pulled ? 0.82 : 0.55,
+      8,
+      delta,
+    );
+    folder.current.rotation.x = THREE.MathUtils.damp(
+      folder.current.rotation.x,
+      pulled ? -0.07 : -0.18,
+      8,
+      delta,
+    );
+  });
+
+  return (
+    <group
+      ref={folder}
+      position={[0, 0.43, 0.55]}
+      rotation={[-0.18, 0, -0.035]}
+    >
+      <RoundedBox args={[0.84, 0.64, 0.07]} radius={0.055} castShadow>
+        <meshStandardMaterial color={palette.yellow} roughness={0.82} />
+      </RoundedBox>
+      <RoundedBox
+        args={[0.34, 0.14, 0.075]}
+        position={[-0.2, 0.36, 0]}
+        radius={0.04}
+      >
+        <meshStandardMaterial color={palette.yellow} roughness={0.82} />
+      </RoundedBox>
+      <RoundedBox
+        args={[0.72, 0.48, 0.035]}
+        position={[0, 0.06, 0.055]}
+        radius={0.035}
+      >
+        <meshStandardMaterial color={palette.cream} roughness={0.9} />
+      </RoundedBox>
+      <RoundedBox
+        args={[0.84, 0.48, 0.065]}
+        position={[0, -0.09, 0.1]}
+        radius={0.05}
+      >
+        <meshStandardMaterial color="#e6bb66" roughness={0.82} />
+      </RoundedBox>
+      <RoundedBox
+        args={[0.48, 0.18, 0.025]}
+        position={[0.04, -0.08, 0.145]}
+        radius={0.025}
+      >
+        <meshStandardMaterial color={palette.cream} roughness={0.88} />
+      </RoundedBox>
+      {[-0.04, 0.04].map((y, index) => (
+        <RoundedBox
+          key={y}
+          args={[index === 0 ? 0.3 : 0.22, 0.018, 0.012]}
+          position={[-0.01, y - 0.08, 0.164]}
+          radius={0.008}
+        >
+          <meshStandardMaterial color={palette.deepBlue} roughness={0.72} />
+        </RoundedBox>
+      ))}
+    </group>
+  );
+}
+
+function ExperienceFileDrawer({ onEnter }: ObjectSetProps) {
   return (
     <InteractiveObject
-      position={[-0.45, 2.08, -3.55]}
+      position={[3.49, -0.3, -1.11]}
       label="View experience"
       section="05 · Experience"
       href="/experience"
       onEnter={onEnter}
-      labelPosition={[0, 0.92, 0]}
+      labelPosition={[0, 1.4, 0.74]}
     >
-      <RoundedBox args={[1, 1.2, 0.17]} radius={0.1} castShadow>
-        <meshStandardMaterial color={palette.cream} roughness={0.75} />
-      </RoundedBox>
-      <RoundedBox
-        args={[1.01, 0.3, 0.19]}
-        position={[0, 0.45, 0.01]}
-        radius={0.08}
-      >
-        <meshStandardMaterial color={palette.coral} />
-      </RoundedBox>
-      <mesh position={[0, -0.1, 0.13]}>
-        <circleGeometry args={[0.24, 24]} />
-        <meshStandardMaterial color={palette.yellow} />
-      </mesh>
-      {[0.06, 0.24].map((x) => (
-        <mesh key={x} position={[x - 0.15, 0.69, 0.02]}>
-          <torusGeometry args={[0.055, 0.019, 8, 14]} />
-          <meshStandardMaterial color={palette.deepBlue} />
-        </mesh>
-      ))}
+      {(hovered) => (
+        <>
+          <RoundedBox
+            args={[1.08, 0.1, 1.02]}
+            position={[0, -0.13, 0.48]}
+            radius={0.045}
+            castShadow
+          >
+            <meshStandardMaterial color="#8fc7cf" roughness={0.8} />
+          </RoundedBox>
+          {[-0.49, 0.49].map((x) => (
+            <RoundedBox
+              key={x}
+              args={[0.09, 0.34, 1.02]}
+              position={[x, 0, 0.48]}
+              radius={0.035}
+              castShadow
+            >
+              <meshStandardMaterial color={palette.blue} roughness={0.78} />
+            </RoundedBox>
+          ))}
+          <RoundedBox
+            args={[1.09, 0.38, 0.11]}
+            position={[0, 0, 0.98]}
+            radius={0.07}
+            castShadow
+          >
+            <meshStandardMaterial color="#a5dce0" roughness={0.74} />
+          </RoundedBox>
+          <mesh position={[0, 0, 1.055]}>
+            <torusGeometry args={[0.075, 0.022, 8, 16]} />
+            <meshStandardMaterial color={palette.deepBlue} />
+          </mesh>
+          <AnimatedFileFolder pulled={hovered} />
+        </>
+      )}
     </InteractiveObject>
   );
 }
 
-function PortfolioCamera({ onEnter }: ObjectSetProps) {
+function PortfolioSketchbook({ onEnter }: ObjectSetProps) {
   return (
     <InteractiveObject
-      position={[-0.65, -0.72, 1.6]}
+      position={[-0.65, -0.68, 1.6]}
       label="Browse portfolio"
       section="06 · Portfolio"
       href="/portfolio"
       onEnter={onEnter}
-      rotation={[0, -0.15, 0]}
-      labelPosition={[0, 0.72, 0]}
+      rotation={[0, -0.15, -0.035]}
+      labelPosition={[0, 0.68, 0]}
     >
-      <RoundedBox args={[1.15, 0.74, 0.5]} radius={0.15} castShadow>
-        <meshStandardMaterial color={palette.coral} roughness={0.68} />
+      <RoundedBox args={[1.34, 0.1, 0.94]} radius={0.08} castShadow>
+        <meshStandardMaterial color={palette.deepBlue} roughness={0.76} />
       </RoundedBox>
       <RoundedBox
-        args={[0.45, 0.18, 0.32]}
-        position={[-0.25, 0.43, 0]}
-        radius={0.06}
+        args={[1.22, 0.07, 0.84]}
+        position={[0.015, 0.09, 0]}
+        radius={0.055}
       >
-        <meshStandardMaterial color={palette.coral} />
+        <meshStandardMaterial color={palette.cream} roughness={0.92} />
       </RoundedBox>
-      <mesh position={[0.15, 0, 0.33]} rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[0.27, 0.34, 0.18, 24]} />
-        <meshStandardMaterial color={palette.deepBlue} metalness={0.1} />
+      {[-0.3, -0.15, 0, 0.15, 0.3].map((z) => (
+        <mesh key={z} position={[-0.58, 0.15, z]}>
+          <torusGeometry args={[0.054, 0.015, 8, 16]} />
+          <meshStandardMaterial color={palette.coral} metalness={0.12} />
+        </mesh>
+      ))}
+      <mesh
+        position={[-0.05, 0.142, -0.08]}
+        rotation={[Math.PI / 2, 0, 0]}
+      >
+        <torusGeometry args={[0.15, 0.018, 8, 24]} />
+        <meshStandardMaterial color={palette.deepBlue} roughness={0.7} />
       </mesh>
-      <mesh position={[0.15, 0, 0.44]}>
-        <circleGeometry args={[0.15, 24]} />
-        <meshStandardMaterial
-          color="#b9eff0"
-          metalness={0.2}
-          roughness={0.25}
-        />
-      </mesh>
-      <mesh position={[0.43, 0.25, 0.28]}>
-        <sphereGeometry args={[0.07, 12, 10]} />
-        <meshStandardMaterial color={palette.yellow} />
-      </mesh>
+      {[
+        [0.18, 0.22, 0.36],
+        [0.07, -0.29, -0.28],
+        [0.05, -0.25, 0.25],
+      ].map(([width, x, z], index) => (
+        <RoundedBox
+          key={`${x}-${z}`}
+          args={[width, 0.018, 0.018]}
+          position={[x, 0.143, z]}
+          rotation={[0, index === 0 ? -0.25 : 0.12, 0]}
+          radius={0.008}
+        >
+          <meshStandardMaterial
+            color={index === 0 ? palette.coral : palette.deepBlue}
+          />
+        </RoundedBox>
+      ))}
+      <group position={[0.18, 0.2, 0.34]} rotation={[0, 0, Math.PI / 2]}>
+        <mesh>
+          <cylinderGeometry args={[0.026, 0.026, 0.72, 12]} />
+          <meshStandardMaterial color={palette.yellow} roughness={0.72} />
+        </mesh>
+        <mesh position={[0, -0.4, 0]} rotation={[0, 0, Math.PI]}>
+          <coneGeometry args={[0.027, 0.08, 12]} />
+          <meshStandardMaterial color="#d2a45e" roughness={0.8} />
+        </mesh>
+        <mesh position={[0, 0.39, 0]}>
+          <cylinderGeometry args={[0.029, 0.029, 0.06, 12]} />
+          <meshStandardMaterial color={palette.coral} />
+        </mesh>
+      </group>
     </InteractiveObject>
   );
 }
@@ -2441,53 +2587,49 @@ function StudyWorld({
     <>
       <color attach="background" args={["#ffffff"]} />
       <fog attach="fog" args={["#fffaf7", 27, 48]} />
-      <ambientLight intensity={0.82} />
-      <hemisphereLight args={["#fff9f2", "#e8c9cd", 0.72]} />
+      <ambientLight intensity={0.56} />
+      <hemisphereLight args={["#fff8ee", "#dcaeb4", 0.52]} />
       <directionalLight
-        castShadow
-        color="#fff4e4"
-        intensity={1.85}
+        color="#fff0d9"
+        intensity={2.15}
         position={[-8, 12, 7]}
-        shadow-mapSize={[2048, 2048]}
-        shadow-camera-bottom={-7}
-        shadow-camera-far={35}
-        shadow-camera-left={-7}
-        shadow-camera-right={7}
-        shadow-camera-top={7}
-        shadow-bias={-0.00015}
-        shadow-normalBias={0.035}
-        shadow-radius={4}
       />
       <pointLight
-        color="#ffe4d1"
+        color="#ffd8bd"
         decay={2}
         distance={18}
-        intensity={1.2}
+        intensity={0.82}
         position={[-4.5, 6.5, 5]}
+      />
+      <pointLight
+        color="#f5c5d2"
+        decay={2}
+        distance={15}
+        intensity={0.42}
+        position={[5, 3.5, 4]}
+      />
+      <spotLight
+        angle={0.78}
+        color="#fffaf2"
+        decay={1.8}
+        distance={24}
+        intensity={0.72}
+        penumbra={1}
+        position={[4.5, 8.5, 6]}
       />
 
       <group position={[0, 0, 0]}>
         <RoomShell />
-        <RetroDesk />
-        <RetroFloorPhone />
-        <RetroPrinter />
-        <RetroWallHooks />
-        <RetroLaptop />
-        <RetroChair />
-        {SHOW_LEGACY_FURNITURE && (
-          <>
-            <WindowAndCurtains />
-            <Desk />
-            <ChairAndTable />
-            <Decor />
-            <AboutPortrait onEnter={onEnter} />
-            <ProjectComputer onEnter={onEnter} />
-            <EducationBooks onEnter={onEnter} />
-            <ResearchNotebook onEnter={onEnter} />
-            <ExperienceCalendar onEnter={onEnter} />
-            <PortfolioCamera onEnter={onEnter} />
-          </>
-        )}
+        <WindowAndCurtains />
+        <Desk />
+        <ChairAndTable />
+        <Decor />
+        <AboutPortrait onEnter={onEnter} />
+        <ProjectComputer onEnter={onEnter} />
+        <EducationBooks onEnter={onEnter} />
+        <ResearchNotebook onEnter={onEnter} />
+        <ExperienceFileDrawer onEnter={onEnter} />
+        <PortfolioSketchbook onEnter={onEnter} />
       </group>
 
       <CameraRig focus={focus} entering={entering} />
@@ -2525,7 +2667,6 @@ export function StudyScene() {
     <div className={`study-canvas ${entering ? "is-entering" : ""}`}>
       <Canvas
         orthographic
-        shadows
         dpr={[1, 1.6]}
         frameloop={reducedMotion ? "demand" : "always"}
         camera={{
