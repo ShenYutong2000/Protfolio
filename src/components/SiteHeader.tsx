@@ -18,7 +18,11 @@ export function SiteHeader() {
         ))}
       </nav>
 
-      <a className="resume-link" href="/resume.pdf">
+      <a
+        className="resume-link"
+        href={siteProfile.resumeHref}
+        download={siteProfile.resumeDownloadName}
+      >
         Resume
         <Download aria-hidden="true" size={14} strokeWidth={1.8} />
       </a>
