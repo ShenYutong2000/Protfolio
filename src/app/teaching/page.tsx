@@ -1,24 +1,24 @@
-import { GraduationCap } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { SectionShell } from "@/components/SectionShell";
 import { education } from "@/data/content";
 
 export const metadata = {
-  title: "Education",
+  title: "Teaching",
 };
 
-export default function EducationPage() {
+export default function TeachingPage() {
   return (
     <SectionShell
       number="03"
       eyebrow="The books on the shelf"
-      title="Learning, in progress."
-      introduction="The formal education, communities, and questions that have shaped how I approach my work."
+      title="Teaching, in progress."
+      introduction="The courses, studios, and questions that have shaped how I teach and learn alongside others."
     >
       <div className="timeline">
         {education.map((item) => (
           <article className="timeline-entry" key={item.period}>
             <div className="timeline-mark">
-              <GraduationCap aria-hidden="true" />
+              <BookOpen aria-hidden="true" />
             </div>
             <p className="timeline-period">{item.period}</p>
             <div>
@@ -32,10 +32,10 @@ export default function EducationPage() {
 
       <aside className="note-card">
         <p className="eyebrow">On the shelf</p>
-        <h2>Honors & certificates</h2>
+        <h2>Courses & studios</h2>
         <p>
-          Add scholarships, certifications, exchange programs, or academic
-          awards that strengthen your story.
+          Add workshops, guest lectures, teaching assistantships, or studio
+          courses that strengthen your teaching story.
         </p>
       </aside>
     </SectionShell>

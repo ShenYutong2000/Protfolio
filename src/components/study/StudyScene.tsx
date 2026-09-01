@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import {
   AdaptiveDpr,
   Float,
@@ -16,6 +16,8 @@ import {
   RoundedBox,
 } from "@react-three/drei";
 import * as THREE from "three";
+import { siteProfile } from "@/data/content";
+import { PhoneGuestbook } from "@/components/study/PhoneGuestbook";
 
 const palette = {
   shell: "#f5e5e2",
@@ -43,6 +45,122 @@ const WINDOW_CENTER_Y = 3;
 const WINDOW_CENTER_Z = -0.1;
 
 type Point = [number, number, number];
+
+const LAPTOP_POSITION: Point = [-2.08, 0.96, -1.4];
+const LAPTOP_SCALE = 1.25;
+const LAPTOP_YAW = THREE.MathUtils.degToRad(28);
+const LAPTOP_LID_TILT = THREE.MathUtils.degToRad(13);
+const LAPTOP_LID_POSITION = new THREE.Vector3(0, 0.09, -0.43);
+const LAPTOP_SCREEN_LOCAL = new THREE.Vector3(0, 0.48, 0.059);
+const LAPTOP_SCREEN_CENTER = new THREE.Vector3();
+const laptopScreenRef: { current: THREE.Mesh | null } = { current: null };
+
+function getLaptopScreenAlignment() {
+  const orientation = new THREE.Quaternion().setFromEuler(
+    new THREE.Euler(-LAPTOP_LID_TILT, LAPTOP_YAW, 0, "XYZ"),
+  );
+  const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(orientation);
+  const up = new THREE.Vector3(0, 1, 0).applyQuaternion(orientation);
+  const mesh = laptopScreenRef.current;
+  if (mesh) {
+    mesh.updateWorldMatrix(true, false);
+    mesh.getWorldPosition(LAPTOP_SCREEN_CENTER);
+    mesh.getWorldDirection(normal);
+    up.set(0, 1, 0).transformDirection(mesh.matrixWorld).normalize();
+    return { center: LAPTOP_SCREEN_CENTER, normal, up };
+  }
+
+  LAPTOP_SCREEN_CENTER.copy(LAPTOP_SCREEN_LOCAL)
+    .applyEuler(new THREE.Euler(-LAPTOP_LID_TILT, 0, 0))
+    .add(LAPTOP_LID_POSITION)
+    .multiplyScalar(LAPTOP_SCALE)
+    .applyEuler(new THREE.Euler(0, LAPTOP_YAW, 0))
+    .add(new THREE.Vector3(...LAPTOP_POSITION));
+  return { center: LAPTOP_SCREEN_CENTER, normal, up };
+}
+
+getLaptopScreenAlignment();
+const LAPTOP_FOCUS_POINT: Point = [
+  LAPTOP_SCREEN_CENTER.x,
+  LAPTOP_SCREEN_CENTER.y,
+  LAPTOP_SCREEN_CENTER.z,
+];
+const PORTFOLIO_FOCUS_POINT: Point = [0.055, 1.01, -1.42];
+const TEACHING_FOCUS_POINT: Point = [-1.05, 3.58, -3.38];
+const EXPERIENCE_FOCUS_POINT: Point = [1.72, -0.42, -1.94];
+const RESEARCH_FOCUS_POINT: Point = [0.76, -0.48, 0.06];
+const PHONE_POSITION: Point = [3.08, FLOOR_TOP, -0.18];
+const PHONE_YAW = THREE.MathUtils.degToRad(-45);
+const RESUME_HREF = siteProfile.resumeHref;
+const ID_CARD_HOOKS_POSITION: Point = [2.75, 3.85, -3.62];
+const ID_CARD_LOCAL_POSITION = new THREE.Vector3(-0.52, -1.16, 0.22);
+const ID_CARD_ROLL = 0.025;
+const ID_CARD_CENTER = new THREE.Vector3();
+const idCardFaceRef: { current: THREE.Mesh | null } = { current: null };
+
+function getIdCardAlignment() {
+  const normal = new THREE.Vector3(0, 0, 1);
+  const up = new THREE.Vector3(
+    -Math.sin(ID_CARD_ROLL),
+    Math.cos(ID_CARD_ROLL),
+    0,
+  );
+  const mesh = idCardFaceRef.current;
+  if (mesh) {
+    mesh.updateWorldMatrix(true, false);
+    mesh.getWorldPosition(ID_CARD_CENTER);
+    mesh.getWorldDirection(normal);
+    up.set(0, 1, 0).transformDirection(mesh.matrixWorld).normalize();
+    return { center: ID_CARD_CENTER, normal, up };
+  }
+
+  ID_CARD_CENTER.copy(new THREE.Vector3(0, 0, 0.042))
+    .applyEuler(new THREE.Euler(0, 0, ID_CARD_ROLL))
+    .add(ID_CARD_LOCAL_POSITION)
+    .add(new THREE.Vector3(...ID_CARD_HOOKS_POSITION));
+  return { center: ID_CARD_CENTER, normal, up };
+}
+
+getIdCardAlignment();
+const ID_CARD_FOCUS_POINT: Point = [
+  ID_CARD_CENTER.x,
+  ID_CARD_CENTER.y,
+  ID_CARD_CENTER.z,
+];
+
+type DetailView =
+  | "computer"
+  | "portfolio"
+  | "idcard"
+  | "teaching"
+  | "experience"
+  | "research"
+  | null;
+const LAPTOP_SCREEN = { width: 768, height: 480 };
+const LAPTOP_POPUP = {
+  x: 91.5,
+  y: 88.5,
+  width: 585,
+  height: 303,
+};
+const LAPTOP_PROJECT_BUTTONS = {
+  x: 160,
+  y: 258,
+  width: 496,
+  height: 86,
+};
+
+function isLaptopProjectButtonHit(uv: THREE.Vector2 | undefined) {
+  if (!uv) return false;
+  const x = uv.x * LAPTOP_SCREEN.width;
+  const y = (1 - uv.y) * LAPTOP_SCREEN.height;
+  return (
+    x >= LAPTOP_PROJECT_BUTTONS.x &&
+    x <= LAPTOP_PROJECT_BUTTONS.x + LAPTOP_PROJECT_BUTTONS.width &&
+    y >= LAPTOP_PROJECT_BUTTONS.y &&
+    y <= LAPTOP_PROJECT_BUTTONS.y + LAPTOP_PROJECT_BUTTONS.height
+  );
+}
 
 type InteractiveObjectProps = {
   position: Point;
@@ -135,47 +253,123 @@ function InteractiveObject({
 function CameraRig({
   focus,
   entering,
+  detailView,
+  reducedMotion,
 }: {
   focus: Point | null;
   entering: boolean;
+  detailView: DetailView;
+  reducedMotion: boolean;
 }) {
   useFrame((state, delta) => {
     const pointerX = state.pointer.x * 0.08;
     const pointerY = state.pointer.y * 0.06;
     const overviewTarget = new THREE.Vector3(0, 1.68, -0.1);
-    const target = focus ? new THREE.Vector3(...focus) : overviewTarget;
     const cameraOffset = focus ? 8.5 : 11;
-    const destination = focus
-      ? new THREE.Vector3(
-          target.x + cameraOffset,
-          target.y + cameraOffset,
-          target.z + cameraOffset,
-        )
-      : new THREE.Vector3(
-          target.x + cameraOffset + pointerX,
-          target.y + cameraOffset + pointerY,
-          target.z + cameraOffset,
-        );
+    const face =
+      detailView === "computer"
+        ? getLaptopScreenAlignment()
+        : detailView === "idcard"
+          ? getIdCardAlignment()
+          : null;
+    const target = face
+      ? face.center
+      : focus
+        ? new THREE.Vector3(...focus)
+        : overviewTarget;
+    const faceDistance = detailView === "idcard" ? 4.8 : 5.2;
+    const destination =
+      face
+        ? new THREE.Vector3(
+            target.x + face.normal.x * faceDistance,
+            target.y + face.normal.y * faceDistance,
+            target.z + face.normal.z * faceDistance,
+          )
+        : detailView === "portfolio"
+          ? new THREE.Vector3(
+              target.x + 1.05,
+              target.y + 4.85,
+              target.z + 2.35,
+            )
+          : detailView === "teaching"
+            ? new THREE.Vector3(
+                target.x + 0.08,
+                target.y + 0.48,
+                target.z + 3.55,
+              )
+            : detailView === "experience"
+              ? new THREE.Vector3(
+                  target.x + 3.85,
+                  target.y + 0.22,
+                  target.z + 1.08,
+                )
+              : detailView === "research"
+                ? new THREE.Vector3(
+                    target.x + 2.28,
+                    target.y + 3.68,
+                    target.z + 1.92,
+                  )
+          : focus
+            ? new THREE.Vector3(
+                target.x + cameraOffset,
+                target.y + cameraOffset,
+                target.z + cameraOffset,
+              )
+            : new THREE.Vector3(
+                target.x + cameraOffset + pointerX,
+                target.y + cameraOffset + pointerY,
+                target.z + cameraOffset,
+              );
 
-    state.camera.position.x = THREE.MathUtils.damp(
-      state.camera.position.x,
-      destination.x,
-      entering ? 4.8 : 2.5,
-      delta,
-    );
-    state.camera.position.y = THREE.MathUtils.damp(
-      state.camera.position.y,
-      destination.y,
-      entering ? 4.8 : 2.5,
-      delta,
-    );
-    state.camera.position.z = THREE.MathUtils.damp(
-      state.camera.position.z,
-      destination.z,
-      entering ? 4.8 : 2.5,
-      delta,
-    );
+    if (reducedMotion) {
+      state.camera.position.copy(destination);
+    } else {
+      const cameraSpeed = detailView ? 4.6 : entering ? 4.8 : 2.5;
+      state.camera.position.x = THREE.MathUtils.damp(
+        state.camera.position.x,
+        destination.x,
+        cameraSpeed,
+        delta,
+      );
+      state.camera.position.y = THREE.MathUtils.damp(
+        state.camera.position.y,
+        destination.y,
+        cameraSpeed,
+        delta,
+      );
+      state.camera.position.z = THREE.MathUtils.damp(
+        state.camera.position.z,
+        destination.z,
+        cameraSpeed,
+        delta,
+      );
+    }
 
+    const lockViewUp = detailView === "computer" || detailView === "idcard";
+    const desiredUp =
+      lockViewUp && face ? face.up : new THREE.Vector3(0, 1, 0);
+    if (reducedMotion || lockViewUp) {
+      state.camera.up.copy(desiredUp);
+    } else {
+      state.camera.up.x = THREE.MathUtils.damp(
+        state.camera.up.x,
+        desiredUp.x,
+        4.6,
+        delta,
+      );
+      state.camera.up.y = THREE.MathUtils.damp(
+        state.camera.up.y,
+        desiredUp.y,
+        4.6,
+        delta,
+      );
+      state.camera.up.z = THREE.MathUtils.damp(
+        state.camera.up.z,
+        desiredUp.z,
+        4.6,
+        delta,
+      );
+    }
     state.camera.lookAt(target);
 
     if (state.camera instanceof THREE.OrthographicCamera) {
@@ -183,12 +377,30 @@ function CameraRig({
         state.size.width / 18,
         state.size.height / 17,
       );
-      state.camera.zoom = THREE.MathUtils.damp(
-        state.camera.zoom,
-        fittedZoom * (focus ? 1.2 : 1),
-        entering ? 4.8 : 3,
-        delta,
-      );
+      const focusZoom =
+        detailView === "computer"
+          ? 12.8
+          : detailView === "idcard"
+            ? 18
+            : detailView === "teaching"
+              ? 7.4
+              : detailView === "experience"
+                ? 10.8
+                : detailView === "research"
+                  ? 8.9
+                  : detailView === "portfolio"
+              ? 8.6
+              : focus
+                ? 1.2
+                : 1;
+      state.camera.zoom = reducedMotion
+        ? fittedZoom * focusZoom
+        : THREE.MathUtils.damp(
+            state.camera.zoom,
+            fittedZoom * focusZoom,
+            detailView ? 4.6 : entering ? 4.8 : 3,
+            delta,
+          );
       state.camera.updateProjectionMatrix();
     }
   });
@@ -310,7 +522,14 @@ function RoomShell() {
   );
 }
 
-function RetroFloorPhone() {
+function RetroFloorPhone({
+  focused,
+  onInspect,
+}: {
+  focused: boolean;
+  onInspect: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
   const numberKeys = [
     [-0.09, 0.16],
     [0, 0.16],
@@ -326,11 +545,38 @@ function RetroFloorPhone() {
     [0.09, 0.43],
   ];
 
+  useEffect(() => {
+    document.body.style.cursor = hovered ? "pointer" : "auto";
+    return () => {
+      document.body.style.cursor = "auto";
+    };
+  }, [focused, hovered]);
+
+  function handleClick(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation();
+    if (!focused) onInspect();
+  }
+
   return (
     <group
-      position={[3.08, FLOOR_TOP, -0.18]}
-      rotation={[0, THREE.MathUtils.degToRad(-45), 0]}
+      position={PHONE_POSITION}
+      rotation={[0, PHONE_YAW, 0]}
+      onClick={handleClick}
+      onPointerEnter={(event) => {
+        event.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerLeave={() => setHovered(false)}
     >
+      <mesh position={[0, 0.22, 0]} rotation={[-0.85, 0, 0]}>
+        <planeGeometry args={[0.95, 1.15]} />
+        <meshBasicMaterial
+          depthWrite={false}
+          opacity={0}
+          side={THREE.DoubleSide}
+          transparent
+        />
+      </mesh>
       <RoundedBox
         args={[0.34, 0.1, 0.72]}
         position={[0, 0.05, 0]}
@@ -363,10 +609,17 @@ function RetroFloorPhone() {
         <meshPhysicalMaterial
           clearcoat={0.12}
           clearcoatRoughness={0.52}
-          color="#b9d4c4"
+          color="#2d2044"
           roughness={0.46}
         />
       </RoundedBox>
+      <mesh
+        position={[0, 0.152, -0.17]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <planeGeometry args={[0.22, 0.188]} />
+        <meshBasicMaterial color={focused ? "#cbb6e6" : "#b9d4c4"} />
+      </mesh>
       <RoundedBox
         args={[0.11, 0.012, 0.045]}
         position={[0, 0.139, -0.31]}
@@ -453,17 +706,140 @@ function RetroFloorPhone() {
       >
         <meshPhysicalMaterial color="#c6699d" roughness={0.66} />
       </RoundedBox>
+      {hovered && !focused && (
+        <Html
+          center
+          position={[0, 0.42, 0]}
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="computer-hover-prompt">
+            <span>GUESTBOOK · PHONE</span>
+            Click to leave a message
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
 
+function downloadResume() {
+  const link = document.createElement("a");
+  link.href = RESUME_HREF;
+  link.download = siteProfile.resumeDownloadName;
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+function useResumePaperTexture() {
+  return useMemo(() => {
+    if (typeof document === "undefined") return null;
+    const width = 512;
+    const height = 680;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+
+    context.fillStyle = "#f7f4ea";
+    context.fillRect(0, 0, width, height);
+    context.fillStyle = "#e47c68";
+    context.fillRect(0, 0, 18, height);
+    context.fillStyle = "#21383b";
+    context.font = "700 36px 'Courier New', monospace";
+    context.fillText("RESUME", 46, 64);
+    context.fillStyle = "#4f91a0";
+    context.fillRect(46, 78, 128, 5);
+    context.fillStyle = "#21383b";
+    context.font = "700 28px 'Courier New', monospace";
+    context.fillText(siteProfile.name, 46, 128);
+    context.fillStyle = "#667c7d";
+    context.font = "600 16px 'Courier New', monospace";
+    context.fillText(siteProfile.role, 46, 158);
+    context.fillText(`${siteProfile.location}  ·  ${siteProfile.email}`, 46, 184);
+
+    const lines = [
+      siteProfile.introduction,
+      ...siteProfile.biography,
+      `Interests: ${siteProfile.interests.join(" · ")}`,
+    ];
+    context.fillStyle = "#40565a";
+    context.font = "500 15px 'Courier New', monospace";
+    let y = 230;
+    for (const line of lines) {
+      const words = line.split(" ");
+      let row = "";
+      for (const word of words) {
+        const next = row ? `${row} ${word}` : word;
+        if (context.measureText(next).width > 400) {
+          context.fillText(row, 46, y);
+          y += 22;
+          row = word;
+        } else {
+          row = next;
+        }
+      }
+      if (row) {
+        context.fillText(row, 46, y);
+        y += 28;
+      }
+    }
+
+    context.fillStyle = "#d7d2c4";
+    for (let i = 0; i < 7; i += 1) {
+      context.fillRect(46, y + i * 22, 380 - (i % 3) * 48, 4);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 8;
+    return texture;
+  }, []);
+}
+
 function RetroPrinter() {
+  const [hovered, setHovered] = useState(false);
+  const [printing, setPrinting] = useState(false);
+  const resumeTexture = useResumePaperTexture();
+
+  useEffect(() => {
+    document.body.style.cursor = hovered ? "pointer" : "auto";
+    return () => {
+      document.body.style.cursor = "auto";
+    };
+  }, [hovered]);
+
+  function handleClick(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation();
+    if (printing) return;
+    setPrinting(true);
+    downloadResume();
+    window.setTimeout(() => setPrinting(false), 1200);
+  }
+
   return (
     <group
       position={[2.55, FLOOR_TOP, -2.35]}
       rotation={[0, THREE.MathUtils.degToRad(-10), 0]}
       scale={1.2}
+      onClick={handleClick}
+      onPointerEnter={(event) => {
+        event.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerLeave={() => setHovered(false)}
     >
+      <mesh position={[0, 0.72, 0.28]} rotation={[-0.28, 0, 0]}>
+        <planeGeometry args={[1.55, 1.85]} />
+        <meshBasicMaterial
+          depthWrite={false}
+          opacity={0}
+          side={THREE.DoubleSide}
+          transparent
+        />
+      </mesh>
       {[
         [-0.53, -0.28],
         [-0.53, 0.28],
@@ -554,6 +930,17 @@ function RetroPrinter() {
         <meshPhysicalMaterial color="#dfe4df" roughness={0.84} />
       </RoundedBox>
       <mesh
+        position={[0, 0.178, printing ? 0.96 : 0.74]}
+        rotation={[-Math.PI / 2, 0, 0.04]}
+      >
+        <planeGeometry args={[0.7, 0.62]} />
+        <meshPhysicalMaterial
+          color="#ffffff"
+          map={resumeTexture ?? undefined}
+          roughness={0.86}
+        />
+      </mesh>
+      <mesh
         position={[0, 0.72, -0.19]}
         rotation={[0, 0, Math.PI / 2]}
       >
@@ -569,16 +956,19 @@ function RetroPrinter() {
       >
         <meshPhysicalMaterial color="#596164" roughness={0.72} />
       </RoundedBox>
-      <RoundedBox
-        args={[0.74, 0.68, 0.035]}
+      <mesh
         position={[0, 1.05, -0.43]}
         rotation={[-0.08, 0, 0]}
-        radius={0.025}
-        smoothness={6}
         castShadow
       >
-        <meshPhysicalMaterial color="#f1f2ed" roughness={0.87} />
-      </RoundedBox>
+        <planeGeometry args={[0.74, 0.68]} />
+        <meshPhysicalMaterial
+          color="#ffffff"
+          map={resumeTexture ?? undefined}
+          roughness={0.86}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
       <RoundedBox
         args={[0.28, 0.055, 0.025]}
         position={[0, 0.47, 0.47]}
@@ -590,83 +980,308 @@ function RetroPrinter() {
       <mesh position={[0.47, 0.58, 0.4]}>
         <cylinderGeometry args={[0.035, 0.035, 0.022, 12]} />
         <meshPhysicalMaterial
-          color="#8fbe75"
-          emissive="#6b9e5c"
-          emissiveIntensity={0.18}
+          color={printing || hovered ? "#b6e08a" : "#8fbe75"}
+          emissive={printing || hovered ? "#8fbe75" : "#6b9e5c"}
+          emissiveIntensity={printing || hovered ? 0.42 : 0.18}
           roughness={0.58}
         />
       </mesh>
+      {hovered && (
+        <Html
+          center
+          position={[0, 1.42, 0.18]}
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="computer-hover-prompt">
+            <span>RESUME · PRINTER</span>
+            {printing ? "Printing resume..." : "Click to download Resume"}
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
 
-function RetroWallHooks() {
-  const mushroomCaps = [
-    { x: -0.62, scale: 0.82 },
-    { x: 0, scale: 1 },
-    { x: 0.62, scale: 0.82 },
+function roundRectPath(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) {
+  const r = Math.min(radius, width / 2, height / 2);
+  context.beginPath();
+  context.moveTo(x + r, y);
+  context.arcTo(x + width, y, x + width, y + height, r);
+  context.arcTo(x + width, y + height, x, y + height, r);
+  context.arcTo(x, y + height, x, y, r);
+  context.arcTo(x, y, x + width, y, r);
+  context.closePath();
+}
+
+function drawIdCardQr(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+) {
+  const cells = 21;
+  const cell = size / cells;
+  const finder = [
+    [0, 0],
+    [cells - 7, 0],
+    [0, cells - 7],
   ];
+  context.fillStyle = "#111";
+  context.fillRect(x, y, size, size);
+  context.fillStyle = "#fff";
+  context.fillRect(x + 2, y + 2, size - 4, size - 4);
+  const filled = (col: number, row: number) => {
+    const finderOrigin = finder.find(
+      ([fx, fy]) => col >= fx && col < fx + 7 && row >= fy && row < fy + 7,
+    );
+    if (finderOrigin) {
+      const lx = col - finderOrigin[0];
+      const ly = row - finderOrigin[1];
+      return (
+        lx === 0 ||
+        ly === 0 ||
+        lx === 6 ||
+        ly === 6 ||
+        (lx >= 2 && lx <= 4 && ly >= 2 && ly <= 4)
+      );
+    }
+    return (col * 7 + row * 13) % 5 > 1;
+  };
+  context.fillStyle = "#111";
+  for (let row = 0; row < cells; row += 1) {
+    for (let col = 0; col < cells; col += 1) {
+      if (filled(col, row)) {
+        context.fillRect(x + col * cell, y + row * cell, cell, cell);
+      }
+    }
+  }
+}
+
+function useStudentIdTexture() {
+  const texture = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    const width = 1280;
+    const height = 808;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+
+    context.fillStyle = "#fffdfb";
+    roundRectPath(context, 0, 0, width, height, 36);
+    context.fill();
+    context.save();
+    roundRectPath(context, 0, 0, width, height, 36);
+    context.clip();
+
+    context.fillStyle = "#f4a7b8";
+    context.fillRect(0, 0, width, 196);
+    context.fillStyle = "rgba(255, 255, 255, 0.18)";
+    context.beginPath();
+    context.arc(1180, 40, 120, 0, Math.PI * 2);
+    context.fill();
+
+    context.fillStyle = "#171717";
+    context.font = "700 54px 'Times New Roman', serif";
+    context.textAlign = "left";
+    context.textBaseline = "alphabetic";
+    context.fillText("Fotogram", 48, 92);
+    context.font = "700 22px 'Times New Roman', serif";
+    context.fillText("®", 286, 62);
+
+    context.beginPath();
+    context.arc(348, 78, 28, 0, Math.PI * 2);
+    context.lineWidth = 3;
+    context.strokeStyle = "#171717";
+    context.stroke();
+    context.font = "700 18px 'Times New Roman', serif";
+    context.textAlign = "center";
+    context.fillText("FG", 348, 84);
+
+    context.textAlign = "left";
+    context.lineJoin = "round";
+    context.lineWidth = 5;
+    context.strokeStyle = "#171717";
+    context.fillStyle = "#fff7f4";
+    context.font = "italic 700 58px 'Times New Roman', serif";
+    context.strokeText("Student ID Card", 430, 96);
+    context.fillText("Student ID Card", 430, 96);
+
+    context.fillStyle = "#c45a63";
+    context.font = "italic 700 22px 'Times New Roman', serif";
+    context.fillText("“The Best Moment of the day”", 430, 148);
+
+    roundRectPath(context, 1048, 118, 176, 36, 18);
+    context.fillStyle = "#171717";
+    context.fill();
+    context.fillStyle = "#fff";
+    context.font = "700 16px 'Segoe UI', sans-serif";
+    context.textAlign = "center";
+    context.fillText("FTGRM-2024", 1136, 142);
+
+    context.fillStyle = "#fffdfb";
+    context.fillRect(0, 196, width, 612);
+
+    context.fillStyle = "rgba(244, 167, 184, 0.16)";
+    context.beginPath();
+    context.arc(820, 430, 210, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = "rgba(23, 23, 23, 0.18)";
+    context.lineWidth = 8;
+    context.beginPath();
+    context.arc(820, 430, 118, 0, Math.PI * 2);
+    context.stroke();
+    context.font = "700 36px 'Times New Roman', serif";
+    context.fillStyle = "rgba(23, 23, 23, 0.12)";
+    context.textAlign = "center";
+    context.fillText("FG", 820, 442);
+
+    roundRectPath(context, 48, 232, 268, 338, 10);
+    context.fillStyle = "#1c2430";
+    context.fill();
+    roundRectPath(context, 58, 242, 248, 318, 6);
+    context.fillStyle = "#f3d7c4";
+    context.fill();
+
+    context.fillStyle = "#7e5a48";
+    context.beginPath();
+    context.ellipse(132, 318, 42, 48, -0.12, 0, Math.PI * 2);
+    context.fill();
+    context.beginPath();
+    context.ellipse(214, 312, 46, 52, 0.1, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = "#f0c3ab";
+    context.beginPath();
+    context.ellipse(134, 338, 34, 38, 0, 0, Math.PI * 2);
+    context.fill();
+    context.beginPath();
+    context.ellipse(216, 334, 36, 40, 0, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = "#5c3f34";
+    context.beginPath();
+    context.arc(122, 336, 4, 0, Math.PI * 2);
+    context.arc(146, 336, 4, 0, Math.PI * 2);
+    context.arc(204, 332, 4, 0, Math.PI * 2);
+    context.arc(228, 332, 4, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = "#e28aa6";
+    context.beginPath();
+    context.moveTo(58, 560);
+    context.lineTo(58, 430);
+    context.quadraticCurveTo(134, 390, 176, 430);
+    context.lineTo(176, 560);
+    context.fill();
+    context.fillStyle = "#88b8c8";
+    context.beginPath();
+    context.moveTo(176, 560);
+    context.lineTo(176, 424);
+    context.quadraticCurveTo(230, 382, 306, 428);
+    context.lineTo(306, 560);
+    context.fill();
+
+    const fields = [
+      ["Name", siteProfile.name],
+      ["Role", siteProfile.role],
+      ["Based in", siteProfile.location],
+      ["Email", siteProfile.email],
+    ] as const;
+    fields.forEach(([label, value], index) => {
+      const y = 268 + index * 78;
+      context.fillStyle = "#171717";
+      context.textAlign = "left";
+      context.font = "700 20px 'Segoe UI', sans-serif";
+      context.fillText(label, 360, y);
+      context.font = "600 30px 'Segoe Script', 'Brush Script MT', cursive";
+      let display = value;
+      while (context.measureText(display).width > 620 && display.length > 4) {
+        display = `${display.slice(0, -2)}…`;
+      }
+      context.fillText(display, 360, y + 42);
+      context.strokeStyle = "#d7d0c8";
+      context.lineWidth = 2;
+      context.beginPath();
+      context.moveTo(360, y + 52);
+      context.lineTo(index > 1 ? 820 : 980, y + 52);
+      context.stroke();
+    });
+
+    drawIdCardQr(context, 1068, 430, 148);
+    context.fillStyle = "#171717";
+    context.font = "600 16px 'Segoe UI', sans-serif";
+    context.textAlign = "center";
+    context.fillText("No. FTGRM2024", 1142, 604);
+
+    context.strokeStyle = "#ece4dc";
+    context.lineWidth = 3;
+    context.beginPath();
+    context.moveTo(36, 668);
+    context.lineTo(1244, 668);
+    context.stroke();
+    context.fillStyle = "#171717";
+    context.font = "600 16px 'Segoe UI', sans-serif";
+    context.textAlign = "left";
+    context.fillText("FTGRM Student", 48, 748);
+    context.textAlign = "center";
+    context.font = "700 22px 'Times New Roman', serif";
+    context.fillText("★  Fotogram Student's Pass  ★", 640, 750);
+
+    context.restore();
+    context.strokeStyle = "#e7b4c2";
+    context.lineWidth = 10;
+    roundRectPath(context, 5, 5, width - 10, height - 10, 32);
+    context.stroke();
+
+    const nextTexture = new THREE.CanvasTexture(canvas);
+    nextTexture.colorSpace = THREE.SRGBColorSpace;
+    nextTexture.minFilter = THREE.LinearFilter;
+    nextTexture.magFilter = THREE.LinearFilter;
+    nextTexture.anisotropy = 8;
+    return nextTexture;
+  }, []);
+
+  useEffect(() => () => texture?.dispose(), [texture]);
+  return texture;
+}
+
+function RetroStudentId({
+  focused,
+  onInspect,
+}: {
+  focused: boolean;
+  onInspect: () => void;
+}) {
+  const faceTexture = useStudentIdTexture();
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    document.body.style.cursor = hovered && !focused ? "zoom-in" : "auto";
+    return () => {
+      document.body.style.cursor = "auto";
+    };
+  }, [focused, hovered]);
+
+  function handleClick(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation();
+    if (!focused) onInspect();
+  }
 
   return (
-    <group position={[2.75, 3.85, -3.62]}>
-      <RoundedBox
-        args={[1.75, 0.18, 0.14]}
-        position={[0, 0.01, 0]}
-        radius={0.07}
-        smoothness={9}
-        castShadow
-      >
-        <meshPhysicalMaterial color="#76a84e" roughness={0.72} />
-      </RoundedBox>
-      {mushroomCaps.map(({ x, scale }) => (
-        <group key={x} position={[x, 0, 0.04]}>
-          <RoundedBox
-            args={[0.12, 0.3, 0.1]}
-            position={[0, -0.04, 0]}
-            radius={0.035}
-            smoothness={7}
-          >
-            <meshPhysicalMaterial color="#e7d7ab" roughness={0.72} />
-          </RoundedBox>
-          <mesh
-            position={[0, 0.25, 0.025]}
-            scale={[scale, scale * 0.62, 0.38]}
-            castShadow
-          >
-            <sphereGeometry args={[0.32, 18, 12]} />
-            <meshPhysicalMaterial
-              clearcoat={0.08}
-              clearcoatRoughness={0.72}
-              color="#df655c"
-              roughness={0.67}
-            />
-          </mesh>
-          {[
-            [-0.11, 0.27],
-            [0.1, 0.28],
-            [0, 0.4],
-          ].map(([dotX, dotY], index) => (
-            <mesh
-              key={index}
-              position={[dotX * scale, dotY * scale, 0.15]}
-            >
-              <sphereGeometry args={[0.042 * scale, 10, 8]} />
-              <meshPhysicalMaterial color="#f8eddc" roughness={0.72} />
-            </mesh>
-          ))}
-          <mesh
-            position={[0, -0.17, 0.11]}
-            rotation={[0, 0, Math.PI]}
-          >
-            <torusGeometry args={[0.09, 0.022, 8, 18, Math.PI]} />
-            <meshPhysicalMaterial
-              color="#8c7659"
-              metalness={0.08}
-              roughness={0.6}
-            />
-          </mesh>
-        </group>
-      ))}
+    <group
+      onClick={handleClick}
+      onPointerEnter={(event) => {
+        event.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerLeave={() => setHovered(false)}
+    >
       <RoundedBox
         args={[0.045, 0.64, 0.045]}
         position={[-0.7, -0.43, 0.17]}
@@ -733,73 +1348,149 @@ function RetroWallHooks() {
         <meshPhysicalMaterial color="#f2eee4" roughness={0.7} />
       </RoundedBox>
       <group
-        position={[-0.52, -1.25, 0.2]}
-        rotation={[0, 0, 0.025]}
+        position={[
+          ID_CARD_LOCAL_POSITION.x,
+          ID_CARD_LOCAL_POSITION.y,
+          ID_CARD_LOCAL_POSITION.z,
+        ]}
+        rotation={[0, 0, ID_CARD_ROLL]}
       >
+        <mesh position={[0, 0.12, 0.02]}>
+          <planeGeometry args={[1.35, 1.05]} />
+          <meshBasicMaterial
+            depthWrite={false}
+            opacity={0}
+            side={THREE.DoubleSide}
+            transparent
+          />
+        </mesh>
         <RoundedBox
-          args={[0.64, 0.94, 0.12]}
-          radius={0.075}
+          args={[1.02, 0.68, 0.08]}
+          radius={0.055}
           smoothness={9}
           castShadow
         >
           <meshPhysicalMaterial
-            clearcoat={0.12}
-            clearcoatRoughness={0.68}
-            color="#b85f7c"
-            roughness={0.67}
+            clearcoat={0.28}
+            clearcoatRoughness={0.38}
+            color="#f3d5de"
+            roughness={0.42}
+            transparent
+            opacity={0.92}
           />
         </RoundedBox>
         <RoundedBox
-          args={[0.53, 0.55, 0.025]}
-          position={[0, 0.08, 0.073]}
-          radius={0.035}
-          smoothness={7}
+          args={[0.96, 0.62, 0.036]}
+          position={[0, 0, 0.018]}
+          radius={0.04}
+          smoothness={8}
         >
-          <meshPhysicalMaterial color="#f7f2e7" roughness={0.8} />
+          <meshPhysicalMaterial color="#fff8f4" roughness={0.78} />
         </RoundedBox>
-        <RoundedBox
-          args={[0.51, 0.1, 0.026]}
-          position={[0, 0.36, 0.075]}
-          radius={0.018}
-          smoothness={5}
+        <mesh
+          ref={(mesh) => {
+            idCardFaceRef.current = mesh;
+          }}
+          position={[0, 0, 0.042]}
         >
-          <meshPhysicalMaterial color="#f2ead7" roughness={0.77} />
-        </RoundedBox>
-        <RoundedBox
-          args={[0.32, 0.31, 0.028]}
-          position={[0, 0.08, 0.078]}
-          radius={0.025}
-          smoothness={6}
-        >
-          <meshPhysicalMaterial color="#f4ced8" roughness={0.75} />
-        </RoundedBox>
-        <mesh position={[0, 0.13, 0.098]}>
-          <circleGeometry args={[0.1, 18]} />
-          <meshPhysicalMaterial color="#f2dfc7" roughness={0.72} />
-        </mesh>
-        {[-0.04, 0.04].map((x) => (
-          <mesh key={x} position={[x, 0.15, 0.104]}>
-            <circleGeometry args={[0.012, 10]} />
-            <meshPhysicalMaterial color="#4b4e50" roughness={0.72} />
-          </mesh>
-        ))}
-        <RoundedBox
-          args={[0.25, 0.09, 0.025]}
-          position={[0, -0.07, 0.1]}
-          radius={0.035}
-          smoothness={6}
-        >
-          <meshPhysicalMaterial color="#d98fa7" roughness={0.72} />
-        </RoundedBox>
-        <mesh position={[0.18, -0.32, 0.075]}>
-          <circleGeometry args={[0.085, 18]} />
-          <meshPhysicalMaterial color="#d5b755" roughness={0.65} />
-        </mesh>
-        <mesh position={[0.18, -0.32, 0.081]}>
-          <circleGeometry args={[0.047, 16]} />
-          <meshPhysicalMaterial color="#f2ebd7" roughness={0.7} />
+          <planeGeometry args={[0.92, 0.58]} />
+          <meshBasicMaterial
+            color={faceTexture ? "#ffffff" : "#f4a7b8"}
+            map={faceTexture ?? undefined}
+            toneMapped={false}
+          />
         </mesh>
       </group>
+      {hovered && !focused && (
+        <Html
+          center
+          position={[-0.52, -0.58, 0.42]}
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="computer-hover-prompt">
+            <span>ABOUT · STUDENT ID</span>
+            Click to inspect
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+function RetroWallHooks({
+  focused,
+  onInspect,
+}: {
+  focused: boolean;
+  onInspect: () => void;
+}) {
+  const mushroomCaps = [
+    { x: -0.62, scale: 0.82 },
+    { x: 0, scale: 1 },
+    { x: 0.62, scale: 0.82 },
+  ];
+
+  return (
+    <group position={ID_CARD_HOOKS_POSITION}>
+      <RoundedBox
+        args={[1.75, 0.18, 0.14]}
+        position={[0, 0.01, 0]}
+        radius={0.07}
+        smoothness={9}
+        castShadow
+      >
+        <meshPhysicalMaterial color="#76a84e" roughness={0.72} />
+      </RoundedBox>
+      {mushroomCaps.map(({ x, scale }) => (
+        <group key={x} position={[x, 0, 0.04]}>
+          <RoundedBox
+            args={[0.12, 0.3, 0.1]}
+            position={[0, -0.04, 0]}
+            radius={0.035}
+            smoothness={7}
+          >
+            <meshPhysicalMaterial color="#e7d7ab" roughness={0.72} />
+          </RoundedBox>
+          <mesh
+            position={[0, 0.25, 0.025]}
+            scale={[scale, scale * 0.62, 0.38]}
+            castShadow
+          >
+            <sphereGeometry args={[0.32, 18, 12]} />
+            <meshPhysicalMaterial
+              clearcoat={0.08}
+              clearcoatRoughness={0.72}
+              color="#df655c"
+              roughness={0.67}
+            />
+          </mesh>
+          {[
+            [-0.11, 0.27],
+            [0.1, 0.28],
+            [0, 0.4],
+          ].map(([dotX, dotY], index) => (
+            <mesh
+              key={index}
+              position={[dotX * scale, dotY * scale, 0.15]}
+            >
+              <sphereGeometry args={[0.042 * scale, 10, 8]} />
+              <meshPhysicalMaterial color="#f8eddc" roughness={0.72} />
+            </mesh>
+          ))}
+          <mesh
+            position={[0, -0.17, 0.11]}
+            rotation={[0, 0, Math.PI]}
+          >
+            <torusGeometry args={[0.09, 0.022, 8, 18, Math.PI]} />
+            <meshPhysicalMaterial
+              color="#8c7659"
+              metalness={0.08}
+              roughness={0.6}
+            />
+          </mesh>
+        </group>
+      ))}
+      <RetroStudentId focused={focused} onInspect={onInspect} />
       <group
         position={[0.48, -1.27, 0.19]}
         rotation={[0, 0, -0.035]}
@@ -974,7 +1665,15 @@ function RetroDeskLamp() {
   );
 }
 
-function RetroDesktopCraftSet() {
+function RetroDesktopCraftSet({
+  focused,
+  onInspect,
+  onOpenPortfolio,
+}: {
+  focused: boolean;
+  onInspect: () => void;
+  onOpenPortfolio: () => void;
+}) {
   const verticalGridLines = Array.from(
     { length: 9 },
     (_, index) => -0.68 + index * 0.17,
@@ -983,9 +1682,48 @@ function RetroDesktopCraftSet() {
     { length: 7 },
     (_, index) => -0.48 + index * 0.16,
   );
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    document.body.style.cursor = hovered
+      ? focused
+        ? "pointer"
+        : "zoom-in"
+      : "auto";
+    return () => {
+      document.body.style.cursor = "auto";
+    };
+  }, [focused, hovered]);
+
+  function handleClick(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation();
+    if (focused) {
+      onOpenPortfolio();
+      return;
+    }
+    onInspect();
+  }
 
   return (
-    <group position={[1.02, -0.0175, 0.52]} rotation={[0, -0.04, 0]}>
+    <group
+      position={[1.02, -0.0175, 0.52]}
+      rotation={[0, -0.04, 0]}
+      onClick={handleClick}
+      onPointerEnter={(event) => {
+        event.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerLeave={() => setHovered(false)}
+    >
+      <mesh position={[0, 0.28, 0.08]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[2.35, 1.85]} />
+        <meshBasicMaterial
+          depthWrite={false}
+          opacity={0}
+          side={THREE.DoubleSide}
+          transparent
+        />
+      </mesh>
       <RoundedBox
         args={[1.82, 0.035, 1.35]}
         position={[0, 0.155, 0]}
@@ -1124,261 +1862,474 @@ function RetroDesktopCraftSet() {
       >
         <meshPhysicalMaterial color="#e6c83f" roughness={0.65} />
       </RoundedBox>
+      {hovered && (
+        <Html
+          center
+          position={[0, 0.92, 0]}
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="computer-hover-prompt">
+            <span>PORTFOLIO · SKETCHBOARD</span>
+            {focused ? "Click to browse" : "Click to inspect"}
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
 
-function RetroTopShelfItems() {
-  const leftNotebooks = [
-    { x: -2.08, width: 0.11, height: 0.82, color: "#d8d5cd" },
-    { x: -1.94, width: 0.12, height: 0.75, color: "#d4aa56" },
-    { x: -1.8, width: 0.13, height: 0.79, color: "#aaa9a2" },
-  ];
-  const rightBooks = [
-    { x: 0.55, width: 0.13, height: 0.82, color: "#b66a61" },
-    { x: 0.71, width: 0.13, height: 0.86, color: "#b9b5af" },
-    { x: 0.87, width: 0.13, height: 0.81, color: "#ddd0a5" },
-    { x: 1.03, width: 0.13, height: 0.88, color: "#87909a" },
-  ];
+function createSpineTexture(
+  width: number,
+  height: number,
+  paint: (context: CanvasRenderingContext2D, w: number, h: number) => void,
+) {
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+  paint(context, width, height);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  return texture;
+}
+
+function RetroTopShelfItems({
+  focused,
+  onInspect,
+  onOpenTeaching,
+}: {
+  focused: boolean;
+  onInspect: () => void;
+  onOpenTeaching: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const spines = useMemo(() => {
+    const manga = [1, 2, 3].map((volume) =>
+      createSpineTexture(96, 512, (context, w, h) => {
+        context.fillStyle = "#f4f1ea";
+        context.fillRect(0, 0, w, h);
+        context.fillStyle = "#e38aa0";
+        context.fillRect(0, 0, w, h * 0.2);
+        context.fillStyle = "#d46b86";
+        context.fillRect(0, 0, w, 10);
+        context.fillStyle = "#3f3f3c";
+        context.font = "700 22px 'Yu Gothic', 'Microsoft YaHei', sans-serif";
+        context.textAlign = "center";
+        context.save();
+        context.translate(w / 2, h * 0.58);
+        context.rotate(-Math.PI / 2);
+        context.fillText("レモネードガール", 0, 8);
+        context.restore();
+        context.font = "700 28px 'Times New Roman', serif";
+        context.fillText(String(volume), w / 2, h - 28);
+      }),
+    );
+    const mercury = createSpineTexture(72, 500, (context, w, h) => {
+      context.fillStyle = "#9ec9e6";
+      context.fillRect(0, 0, w, h);
+      context.fillStyle = "#2f4d63";
+      context.font = "700 20px 'Yu Gothic', 'Microsoft YaHei', sans-serif";
+      context.textAlign = "center";
+      context.save();
+      context.translate(w / 2, h * 0.55);
+      context.rotate(-Math.PI / 2);
+      context.fillText("水星の子", 0, 7);
+      context.restore();
+    });
+    const dictionary = createSpineTexture(128, 520, (context, w, h) => {
+      context.fillStyle = "#2f5f78";
+      context.fillRect(0, 0, w, h);
+      context.fillStyle = "rgba(255,255,255,0.08)";
+      for (let index = 0; index < 18; index += 1) {
+        context.fillRect(8, 24 + index * 26, w - 16, 8);
+      }
+      context.fillStyle = "#e8d39a";
+      context.font = "700 26px 'Times New Roman', serif";
+      context.textAlign = "center";
+      context.save();
+      context.translate(w / 2, h * 0.55);
+      context.rotate(-Math.PI / 2);
+      context.fillText("DICTIONARY", 0, 9);
+      context.restore();
+    });
+    const relativity = createSpineTexture(148, 560, (context, w, h) => {
+      context.fillStyle = "#1d355e";
+      context.fillRect(0, 0, w, h);
+      context.fillStyle = "#f0d24a";
+      context.beginPath();
+      context.arc(w / 2, 48, 18, 0, Math.PI * 2);
+      context.fill();
+      context.fillStyle = "#fff8e8";
+      context.font = "700 34px 'Yu Gothic', 'Microsoft YaHei', sans-serif";
+      context.textAlign = "center";
+      context.save();
+      context.translate(w / 2 - 10, h * 0.52);
+      context.rotate(-Math.PI / 2);
+      context.fillText("相對論", 0, 0);
+      context.restore();
+      context.fillStyle = "#f0d24a";
+      context.font = "700 16px 'Times New Roman', serif";
+      context.save();
+      context.translate(w / 2 + 18, h * 0.58);
+      context.rotate(-Math.PI / 2);
+      context.fillText("The Theory of Relativity", 0, 0);
+      context.restore();
+    });
+    const pastels = ["#d9b8e4", "#f0d36a", "#f3b7c8", "#9ec8e3"].map((color) =>
+      createSpineTexture(70, 480, (context, w, h) => {
+        context.fillStyle = color;
+        context.fillRect(0, 0, w, h);
+        context.fillStyle = "rgba(40,40,40,0.55)";
+        context.font = "700 16px 'Yu Gothic', 'Microsoft YaHei', sans-serif";
+        context.textAlign = "center";
+        context.save();
+        context.translate(w / 2, 70);
+        context.rotate(-Math.PI / 2);
+        context.fillText("文庫", 0, 5);
+        context.restore();
+      }),
+    );
+    return { manga, mercury, dictionary, relativity, pastels };
+  }, []);
+
+  useEffect(() => {
+    document.body.style.cursor = hovered
+      ? focused
+        ? "pointer"
+        : "zoom-in"
+      : "auto";
+    return () => {
+      document.body.style.cursor = "auto";
+    };
+  }, [focused, hovered]);
+
+  useEffect(
+    () => () => {
+      [
+        ...spines.manga,
+        spines.mercury,
+        spines.dictionary,
+        spines.relativity,
+        ...spines.pastels,
+      ].forEach((texture) => texture?.dispose());
+    },
+    [spines],
+  );
+
+  function handleClick(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation();
+    if (focused) {
+      onOpenTeaching();
+      return;
+    }
+    onInspect();
+  }
+
+  const shelfY = 2.37;
 
   return (
-    <group>
-      {leftNotebooks.map(({ x, width, height, color }, index) => (
-        <group key={x}>
-          <RoundedBox
-            args={[width, height, 0.34]}
-            position={[x, 2.39 + height / 2, -1.49]}
-            rotation={[0, 0, index === 0 ? -0.04 : 0.02]}
-            radius={0.022}
-            smoothness={6}
-            castShadow
-          >
-            <meshPhysicalMaterial color={color} roughness={0.78} />
-          </RoundedBox>
-          <RoundedBox
-            args={[width * 0.55, 0.08, 0.018]}
-            position={[x, 2.52 + height / 2, -1.311]}
-            radius={0.01}
-            smoothness={4}
-          >
-            <meshPhysicalMaterial color="#f1eadb" roughness={0.72} />
-          </RoundedBox>
-        </group>
-      ))}
-      <mesh position={[-1.52, 2.43, -1.52]}>
-        <cylinderGeometry args={[0.2, 0.23, 0.08, 18]} />
-        <meshPhysicalMaterial color="#3d4546" roughness={0.7} />
-      </mesh>
-      <mesh position={[-1.52, 2.6, -1.52]}>
-        <cylinderGeometry args={[0.035, 0.045, 0.3, 12]} />
-        <meshPhysicalMaterial color="#5a5a56" roughness={0.67} />
-      </mesh>
-      <mesh position={[-1.52, 2.94, -1.52]} castShadow>
-        <sphereGeometry args={[0.27, 22, 16]} />
-        <meshPhysicalMaterial
-          clearcoat={0.09}
-          clearcoatRoughness={0.68}
-          color="#6bb7cb"
-          roughness={0.62}
+    <group
+      onClick={handleClick}
+      onPointerEnter={(event) => {
+        event.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerLeave={() => setHovered(false)}
+    >
+      <mesh position={[0, 2.86, -1.22]}>
+        <planeGeometry args={[4.45, 1.12]} />
+        <meshBasicMaterial
+          depthWrite={false}
+          opacity={0}
+          side={THREE.DoubleSide}
+          transparent
         />
       </mesh>
-      {[
-        [-1.63, 3.03, 0.095, 0.07],
-        [-1.42, 2.91, 0.09, 0.06],
-        [-1.57, 2.83, 0.07, 0.05],
-      ].map(([x, y, scaleX, scaleY], index) => (
-        <mesh
-          key={index}
-          position={[x, y, -1.275]}
-          scale={[scaleX, scaleY, 1]}
-        >
-          <sphereGeometry args={[1, 12, 8]} />
-          <meshPhysicalMaterial color="#8fc456" roughness={0.72} />
-        </mesh>
-      ))}
       <RoundedBox
-        args={[0.34, 0.48, 0.27]}
-        position={[-1.36, 2.63, -1.3]}
+        args={[0.5, 0.52, 0.36]}
+        position={[-1.9, shelfY + 0.26, -1.48]}
         radius={0.04}
         smoothness={7}
         castShadow
       >
-        <meshPhysicalMaterial color="#b74340" roughness={0.72} />
+        <meshPhysicalMaterial color="#f3f0e8" roughness={0.78} />
       </RoundedBox>
-      {[-1.46, -1.38, -1.3].map((x, index) => (
-        <mesh
-          key={x}
-          position={[x, 3.03 + index * 0.035, -1.3]}
-          rotation={[0, 0, (index - 1) * 0.08]}
-          castShadow
-        >
-          <cylinderGeometry args={[0.024, 0.024, 0.62, 10]} />
-          <meshPhysicalMaterial
-            color={["#e4d9c2", "#8ebac1", "#e8a55f"][index]}
-            roughness={0.7}
-          />
-        </mesh>
-      ))}
-      <RoundedBox
-        args={[1.02, 0.52, 0.37]}
-        position={[-0.43, 2.66, -1.47]}
-        radius={0.045}
-        smoothness={7}
-        castShadow
-      >
-        <meshPhysicalMaterial color="#bf413d" roughness={0.71} />
-      </RoundedBox>
-      {[-0.68, -0.18].map((x, index) => (
-        <group key={x}>
+      {[0.14, -0.12].map((y, index) => (
+        <group key={y}>
           <RoundedBox
-            args={[0.43, 0.36, 0.035]}
-            position={[x, 2.64, -1.265]}
-            radius={0.035}
-            smoothness={7}
+            args={[0.44, 0.2, 0.02]}
+            position={[-1.9, shelfY + 0.26 + y, -1.292]}
+            radius={0.02}
+            smoothness={5}
           >
-            <meshPhysicalMaterial color="#f5ede0" roughness={0.76} />
-          </RoundedBox>
-          <mesh position={[x, 2.64, -1.242]}>
-            <circleGeometry args={[0.095, 16]} />
             <meshPhysicalMaterial
-              color={index === 0 ? "#e3a089" : "#bdd1c3"}
-              roughness={0.72}
+              color="#d7e3ea"
+              roughness={0.42}
+              transparent
+              opacity={0.55}
             />
-          </mesh>
-          {[-0.035, 0.035].map((eyeX) => (
-            <mesh key={eyeX} position={[x + eyeX, 2.66, -1.235]}>
-              <circleGeometry args={[0.012, 10]} />
-              <meshPhysicalMaterial color="#514b49" roughness={0.72} />
-            </mesh>
-          ))}
+          </RoundedBox>
+          <RoundedBox
+            args={[0.32, 0.08, 0.12]}
+            position={[-1.9, shelfY + 0.24 + y, -1.36]}
+            radius={0.02}
+            smoothness={4}
+          >
+            <meshPhysicalMaterial
+              color={index === 0 ? "#f0d24a" : "#e38aa0"}
+              roughness={0.7}
+            />
+          </RoundedBox>
         </group>
       ))}
-      <RoundedBox
-        args={[0.74, 0.17, 0.36]}
-        position={[-0.48, 3.01, -1.46]}
-        rotation={[0, -0.04, 0]}
-        radius={0.035}
-        smoothness={7}
-        castShadow
-      >
-        <meshPhysicalMaterial color="#4b9a59" roughness={0.73} />
-      </RoundedBox>
-      <RoundedBox
-        args={[0.38, 0.018, 0.2]}
-        position={[-0.48, 3.105, -1.46]}
-        radius={0.012}
-        smoothness={4}
-      >
-        <meshPhysicalMaterial color="#dce5d3" roughness={0.75} />
-      </RoundedBox>
-      <mesh position={[0.14, 2.76, -1.46]} castShadow>
-        <cylinderGeometry args={[0.14, 0.14, 0.72, 20]} />
-        <meshPhysicalMaterial color="#e6d7a8" roughness={0.72} />
-      </mesh>
-      <mesh
-        position={[0.14, 3.13, -1.46]}
-        rotation={[Math.PI / 2, 0, 0]}
-      >
-        <torusGeometry args={[0.14, 0.028, 9, 22]} />
-        <meshPhysicalMaterial color="#cb5c52" roughness={0.65} />
-      </mesh>
-      {[-0.08, 0, 0.08].map((offset, index) => (
+      <group position={[-1.42, shelfY + 0.24, -1.4]}>
         <RoundedBox
-          key={offset}
-          args={[0.028, 0.5, 0.018]}
-          position={[0.14 + offset, 2.76, -1.31]}
-          radius={0.009}
-          smoothness={4}
+          args={[0.2, 0.46, 0.14]}
+          radius={0.045}
+          smoothness={7}
+          castShadow
         >
-          <meshPhysicalMaterial
-            color={["#dc9b66", "#89b7b2", "#d8b552"][index]}
-            roughness={0.7}
-          />
+          <meshPhysicalMaterial color="#24262a" roughness={0.7} />
         </RoundedBox>
-      ))}
-      <RoundedBox
-        args={[0.72, 0.88, 0.12]}
-        position={[1.72, 2.83, -1.63]}
-        radius={0.04}
-        smoothness={7}
-      >
-        <meshPhysicalMaterial color="#9c527e" roughness={0.75} />
-      </RoundedBox>
-      {rightBooks.map(({ x, width, height, color }) => (
-        <group key={x}>
+        <mesh position={[0, 0.26, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.055, 0.016, 8, 16, Math.PI]} />
+          <meshPhysicalMaterial color="#1a1c1f" roughness={0.62} />
+        </mesh>
+      </group>
+      {[-0.96, -0.86, -0.76].map((x, index) => (
+        <group key={x} position={[x, shelfY + 0.39, -1.48]}>
           <RoundedBox
-            args={[width, height, 0.34]}
-            position={[x, 2.39 + height / 2, -1.48]}
-            radius={0.022}
+            args={[0.09, 0.78, 0.3]}
+            radius={0.018}
+            smoothness={5}
+            castShadow
+          >
+            <meshPhysicalMaterial color="#efeae0" roughness={0.74} />
+          </RoundedBox>
+          <mesh position={[0, 0, 0.158]}>
+            <planeGeometry args={[0.078, 0.74]} />
+            <meshBasicMaterial
+              color={spines.manga[index] ? "#ffffff" : "#efeae0"}
+              map={spines.manga[index] ?? undefined}
+              toneMapped={false}
+            />
+          </mesh>
+        </group>
+      ))}
+      <group position={[-0.62, shelfY + 0.38, -1.48]}>
+        <RoundedBox
+          args={[0.075, 0.76, 0.28]}
+          radius={0.016}
+          smoothness={5}
+          castShadow
+        >
+          <meshPhysicalMaterial color="#9ec9e6" roughness={0.74} />
+        </RoundedBox>
+        <mesh position={[0, 0, 0.148]}>
+          <planeGeometry args={[0.062, 0.72]} />
+          <meshBasicMaterial
+            color={spines.mercury ? "#ffffff" : "#9ec9e6"}
+            map={spines.mercury ?? undefined}
+            toneMapped={false}
+          />
+        </mesh>
+      </group>
+      <group position={[-0.4, shelfY + 0.4, -1.48]}>
+        <RoundedBox
+          args={[0.145, 0.8, 0.32]}
+          radius={0.02}
+          smoothness={6}
+          castShadow
+        >
+          <meshPhysicalMaterial color="#2f5f78" roughness={0.68} />
+        </RoundedBox>
+        <mesh position={[0, 0, 0.168]}>
+          <planeGeometry args={[0.125, 0.76]} />
+          <meshBasicMaterial
+            color={spines.dictionary ? "#ffffff" : "#2f5f78"}
+            map={spines.dictionary ?? undefined}
+            toneMapped={false}
+          />
+        </mesh>
+      </group>
+      <group position={[-0.08, shelfY + 0.43, -1.47]}>
+        <RoundedBox
+          args={[0.165, 0.86, 0.34]}
+          radius={0.022}
+          smoothness={6}
+          castShadow
+        >
+          <meshPhysicalMaterial color="#1d355e" roughness={0.66} />
+        </RoundedBox>
+        <mesh position={[0, 0, 0.178]}>
+          <planeGeometry args={[0.145, 0.82]} />
+          <meshBasicMaterial
+            color={spines.relativity ? "#ffffff" : "#1d355e"}
+            map={spines.relativity ?? undefined}
+            toneMapped={false}
+          />
+        </mesh>
+      </group>
+      <group position={[0.78, shelfY + 0.22, -1.5]}>
+        <RoundedBox
+          args={[0.54, 0.44, 0.04]}
+          position={[0, 0.14, -0.16]}
+          radius={0.02}
+          smoothness={5}
+        >
+          <meshPhysicalMaterial color="#7b4d9a" roughness={0.72} />
+        </RoundedBox>
+        {[-0.25, 0.25].map((x) => (
+          <RoundedBox
+            key={x}
+            args={[0.045, 0.44, 0.34]}
+            position={[x, 0.14, 0]}
+            radius={0.018}
+            smoothness={5}
+          >
+            <meshPhysicalMaterial color="#7b4d9a" roughness={0.72} />
+          </RoundedBox>
+        ))}
+      </group>
+      {[0.66, 0.9].map((x, index) => (
+        <group key={x} position={[x, shelfY + 0.42, -1.46]}>
+          <RoundedBox
+            args={[0.2, 0.84, 0.3]}
+            radius={0.03}
             smoothness={6}
             castShadow
           >
-            <meshPhysicalMaterial color={color} roughness={0.76} />
-          </RoundedBox>
-          <RoundedBox
-            args={[width * 0.55, 0.18, 0.018]}
-            position={[x, 2.6 + height / 2, -1.301]}
-            radius={0.01}
-            smoothness={4}
-          >
-            <meshPhysicalMaterial color="#f7efdf" roughness={0.72} />
-          </RoundedBox>
-        </group>
-      ))}
-      {[1.37, 1.67].map((x, index) => (
-        <group key={x}>
-          <RoundedBox
-            args={[0.27, 0.84, 0.36]}
-            position={[x, 2.81, -1.47]}
-            radius={0.035}
-            smoothness={7}
-            castShadow
-          >
             <meshPhysicalMaterial
-              color={index === 0 ? "#a8cd3f" : "#bddc45"}
+              color={index === 0 ? "#b6d63a" : "#c5e045"}
               roughness={0.7}
             />
           </RoundedBox>
           <RoundedBox
-            args={[0.08, 0.28, 0.02]}
-            position={[x, 2.86, -1.28]}
-            radius={0.018}
-            smoothness={5}
+            args={[0.09, 0.2, 0.018]}
+            position={[0, 0.08, 0.158]}
+            radius={0.012}
+            smoothness={4}
           >
-            <meshPhysicalMaterial color="#f3eedf" roughness={0.7} />
+            <meshPhysicalMaterial color="#f4efe4" roughness={0.74} />
           </RoundedBox>
         </group>
       ))}
-      <group position={[1.88, 2.51, -1.25]} rotation={[0, -0.05, 0]}>
+      <group position={[1.58, shelfY + 0.2, -1.5]}>
         <RoundedBox
-          args={[0.58, 0.2, 0.28]}
-          radius={0.055}
-          smoothness={8}
-          castShadow
+          args={[0.78, 0.4, 0.04]}
+          position={[0, 0.12, -0.15]}
+          radius={0.02}
+          smoothness={5}
         >
-          <meshPhysicalMaterial color="#db583e" roughness={0.68} />
+          <meshPhysicalMaterial color="#4f8cbc" roughness={0.7} />
         </RoundedBox>
-        <mesh position={[-0.12, 0.12, 0.03]}>
-          <torusGeometry args={[0.15, 0.045, 10, 22]} />
-          <meshPhysicalMaterial color="#efe3bd" roughness={0.64} />
-        </mesh>
-        <RoundedBox
-          args={[0.18, 0.13, 0.22]}
-          position={[0.24, 0.1, 0]}
-          rotation={[0, 0, -0.28]}
-          radius={0.03}
-          smoothness={6}
-        >
-          <meshPhysicalMaterial color="#c64737" roughness={0.7} />
-        </RoundedBox>
+        {[-0.37, 0.37].map((x) => (
+          <RoundedBox
+            key={x}
+            args={[0.04, 0.4, 0.32]}
+            position={[x, 0.12, 0]}
+            radius={0.016}
+            smoothness={5}
+          >
+            <meshPhysicalMaterial color="#4f8cbc" roughness={0.7} />
+          </RoundedBox>
+        ))}
       </group>
+      {[1.32, 1.48, 1.64, 1.8].map((x, index) => (
+        <group key={x} position={[x, shelfY + 0.38, -1.46]}>
+          <RoundedBox
+            args={[0.085, 0.76, 0.28]}
+            radius={0.016}
+            smoothness={5}
+            castShadow
+          >
+            <meshPhysicalMaterial
+              color={["#d9b8e4", "#f0d36a", "#f3b7c8", "#9ec8e3"][index]}
+              roughness={0.74}
+            />
+          </RoundedBox>
+          <mesh position={[0, 0, 0.148]}>
+            <planeGeometry args={[0.07, 0.72]} />
+            <meshBasicMaterial
+              color={spines.pastels[index] ? "#ffffff" : "#d9b8e4"}
+              map={spines.pastels[index] ?? undefined}
+              toneMapped={false}
+            />
+          </mesh>
+        </group>
+      ))}
+      {hovered && (
+        <Html
+          center
+          position={[0, 3.48, -1.1]}
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="computer-hover-prompt">
+            <span>TEACHING · SHELF</span>
+            {focused ? "Click to open Teaching" : "Click to inspect"}
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
 
-function RetroSideBriefcase() {
+function RetroSideBriefcase({
+  focused,
+  onInspect,
+  onOpenExperience,
+}: {
+  focused: boolean;
+  onInspect: () => void;
+  onOpenExperience: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+
+  useEffect(() => {
+    document.body.style.cursor = hovered
+      ? focused
+        ? "pointer"
+        : "zoom-in"
+      : "auto";
+    return () => {
+      document.body.style.cursor = "auto";
+    };
+  }, [focused, hovered]);
+
+  function handleClick(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation();
+    if (focused) {
+      onOpenExperience();
+      return;
+    }
+    onInspect();
+  }
+
   return (
-    <group>
+    <group
+      onClick={handleClick}
+      onPointerEnter={(event) => {
+        event.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerLeave={() => setHovered(false)}
+    >
+      <mesh
+        position={[2.82, -1.05, 0]}
+        rotation={[0, Math.PI / 2, 0]}
+      >
+        <planeGeometry args={[1.55, 1.7]} />
+        <meshBasicMaterial
+          depthWrite={false}
+          opacity={0}
+          side={THREE.DoubleSide}
+          transparent
+        />
+      </mesh>
       <mesh
         position={[2.59, -0.4, 0]}
         rotation={[0, 0, Math.PI / 2]}
@@ -1488,22 +2439,301 @@ function RetroSideBriefcase() {
               radius={0.009}
               smoothness={4}
             >
-              <meshPhysicalMaterial color="#e9e4d7" roughness={0.72} />
-            </RoundedBox>
+            <meshPhysicalMaterial color="#e9e4d7" roughness={0.72} />
+          </RoundedBox>
           </group>
         ))}
       </group>
+      {hovered && (
+        <Html
+          center
+          position={[2.95, -0.15, 0]}
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="computer-hover-prompt">
+            <span>EXPERIENCE · BRIEFCASE</span>
+            {focused ? "Click to open Experience" : "Click to inspect"}
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
 
-function RetroDesk() {
+function RetroResearchDrawers({
+  focused,
+  onInspect,
+  onOpenResearch,
+}: {
+  focused: boolean;
+  onInspect: () => void;
+  onOpenResearch: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
   const openDrawers = [
-    { y: -0.5, extension: 0.77 },
-    { y: -1.35, extension: 0.61 },
-    { y: -2.2, extension: 0.71 },
+    { y: -0.5, extension: 0.38 },
+    { y: -1.35, extension: 0.68 },
+    { y: -2.2, extension: 0.88 },
+  ];
+  const researchFiles = [
+    { color: "#8fb8d2", label: "#f4efe4" },
+    { color: "#e8c37a", label: "#fff8ee" },
   ];
 
+  useEffect(() => {
+    document.body.style.cursor = hovered
+      ? focused
+        ? "pointer"
+        : "zoom-in"
+      : "auto";
+    return () => {
+      document.body.style.cursor = "auto";
+    };
+  }, [focused, hovered]);
+
+  function handleClick(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation();
+    if (focused) {
+      onOpenResearch();
+      return;
+    }
+    onInspect();
+  }
+
+  return (
+    <group
+      onClick={handleClick}
+      onPointerEnter={(event) => {
+        event.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerLeave={() => setHovered(false)}
+    >
+      <mesh position={[1.69, -1.12, 1.88]} rotation={[-0.58, 0.22, 0]}>
+        <planeGeometry args={[2.05, 2.55]} />
+        <meshBasicMaterial
+          depthWrite={false}
+          opacity={0}
+          side={THREE.DoubleSide}
+          transparent
+        />
+      </mesh>
+      {openDrawers.map(({ y, extension }, index) => (
+        <group key={y}>
+          <RoundedBox
+            args={[1.46, 0.1, 1.05]}
+            position={[1.69, y - 0.26, 1.07 + extension]}
+            radius={0.045}
+            smoothness={7}
+            castShadow
+          >
+            <meshPhysicalMaterial color="#c98f59" roughness={0.75} />
+          </RoundedBox>
+          {[1.01, 2.37].map((x) => (
+            <RoundedBox
+              key={`drawer-side-${y}-${x}`}
+              args={[0.1, 0.38, 1.05]}
+              position={[x, y - 0.05, 1.07 + extension]}
+              radius={0.04}
+              smoothness={7}
+              castShadow
+            >
+              <meshPhysicalMaterial color="#c98f59" roughness={0.75} />
+            </RoundedBox>
+          ))}
+          <RoundedBox
+            args={[1.46, 0.38, 0.1]}
+            position={[1.69, y - 0.05, 0.59 + extension]}
+            radius={0.04}
+            smoothness={7}
+          >
+            <meshPhysicalMaterial color="#b97945" roughness={0.76} />
+          </RoundedBox>
+          <RoundedBox
+            args={[1.5, 0.62, 0.09]}
+            position={[1.69, y, 1.615 + extension]}
+            radius={0.075}
+            smoothness={8}
+            castShadow
+          >
+            <meshPhysicalMaterial color="#dea86d" roughness={0.7} />
+          </RoundedBox>
+          <RoundedBox
+            args={[0.46, 0.055, 0.045]}
+            position={[1.69, y + 0.02, 1.68 + extension]}
+            radius={0.025}
+            smoothness={6}
+          >
+            <meshPhysicalMaterial
+              clearcoat={0.18}
+              clearcoatRoughness={0.64}
+              color="#8f603d"
+              roughness={0.6}
+            />
+          </RoundedBox>
+          {index === 0 && (
+            <>
+              <RoundedBox
+                args={[0.52, 0.08, 0.58]}
+                position={[1.32, y - 0.16, 1.08 + extension]}
+                rotation={[0, 0.1, 0]}
+                radius={0.03}
+                smoothness={6}
+              >
+                <meshPhysicalMaterial color="#3d4246" roughness={0.78} />
+              </RoundedBox>
+              <RoundedBox
+                args={[0.58, 0.07, 0.52]}
+                position={[1.96, y - 0.15, 1.18 + extension]}
+                rotation={[0, -0.12, 0]}
+                radius={0.028}
+                smoothness={6}
+              >
+                <meshPhysicalMaterial color="#8a6a45" roughness={0.74} />
+              </RoundedBox>
+              <RoundedBox
+                args={[0.18, 0.012, 0.14]}
+                position={[1.88, y - 0.108, 1.08 + extension]}
+                radius={0.008}
+                smoothness={4}
+              >
+                <meshPhysicalMaterial color="#f3ead8" roughness={0.72} />
+              </RoundedBox>
+            </>
+          )}
+          {index === 1 && (
+            <>
+              <RoundedBox
+                args={[0.72, 0.1, 0.46]}
+                position={[1.52, y - 0.16, 0.98 + extension]}
+                rotation={[0, 0.04, 0]}
+                radius={0.03}
+                smoothness={6}
+              >
+                <meshPhysicalMaterial color="#6ea4c8" roughness={0.68} />
+              </RoundedBox>
+              <RoundedBox
+                args={[0.68, 0.012, 0.08]}
+                position={[1.52, y - 0.104, 0.98 + extension]}
+                radius={0.006}
+                smoothness={4}
+              >
+                <meshPhysicalMaterial color="#efd36a" roughness={0.64} />
+              </RoundedBox>
+              {researchFiles.map((file, fileIndex) => (
+                <group
+                  key={file.color}
+                  position={[
+                    1.38 + fileIndex * 0.42,
+                    y - 0.17,
+                    1.28 + extension,
+                  ]}
+                  rotation={[0, fileIndex === 0 ? 0.08 : -0.06, 0]}
+                >
+                  <RoundedBox
+                    args={[0.38, 0.05, 0.54]}
+                    radius={0.025}
+                    smoothness={6}
+                    castShadow
+                  >
+                    <meshPhysicalMaterial color={file.color} roughness={0.72} />
+                  </RoundedBox>
+                  <RoundedBox
+                    args={[0.16, 0.012, 0.12]}
+                    position={[0.06, 0.03, -0.12]}
+                    radius={0.008}
+                    smoothness={4}
+                  >
+                    <meshPhysicalMaterial color={file.label} roughness={0.7} />
+                  </RoundedBox>
+                </group>
+              ))}
+            </>
+          )}
+          {index === 2 && (
+            <>
+              <RoundedBox
+                args={[0.62, 0.1, 0.7]}
+                position={[1.42, y - 0.15, 1.08 + extension]}
+                rotation={[0, 0.08, 0]}
+                radius={0.04}
+                smoothness={7}
+              >
+                <meshPhysicalMaterial color="#7fbf6a" roughness={0.76} />
+              </RoundedBox>
+              <RoundedBox
+                args={[0.58, 0.012, 0.18]}
+                position={[1.42, y - 0.092, 1.08 + extension]}
+                radius={0.008}
+                smoothness={4}
+              >
+                <meshPhysicalMaterial color="#f0d24a" roughness={0.68} />
+              </RoundedBox>
+              <RoundedBox
+                args={[0.46, 0.045, 0.58]}
+                position={[1.98, y - 0.17, 1.16 + extension]}
+                rotation={[0, -0.1, 0]}
+                radius={0.022}
+                smoothness={6}
+              >
+                <meshPhysicalMaterial color="#efe3c8" roughness={0.74} />
+              </RoundedBox>
+              <RoundedBox
+                args={[0.2, 0.02, 0.2]}
+                position={[2.12, y - 0.14, 1.02 + extension]}
+                rotation={[0, 0.35, 0]}
+                radius={0.01}
+                smoothness={4}
+              >
+                <meshPhysicalMaterial color="#f7f4ee" roughness={0.7} />
+              </RoundedBox>
+            </>
+          )}
+        </group>
+      ))}
+      {hovered && (
+        <Html
+          center
+          position={[1.69, -0.05, 2.15]}
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="computer-hover-prompt">
+            <span>RESEARCH · FILES</span>
+            {focused ? "Click to open Research" : "Click to inspect"}
+          </div>
+        </Html>
+      )}
+    </group>
+  );
+}
+
+function RetroDesk({
+  portfolioFocused,
+  teachingFocused,
+  experienceFocused,
+  researchFocused,
+  onInspectPortfolio,
+  onOpenPortfolio,
+  onInspectTeaching,
+  onOpenTeaching,
+  onInspectExperience,
+  onOpenExperience,
+  onInspectResearch,
+  onOpenResearch,
+}: {
+  portfolioFocused: boolean;
+  teachingFocused: boolean;
+  experienceFocused: boolean;
+  researchFocused: boolean;
+  onInspectPortfolio: () => void;
+  onOpenPortfolio: () => void;
+  onInspectTeaching: () => void;
+  onOpenTeaching: () => void;
+  onInspectExperience: () => void;
+  onOpenExperience: () => void;
+  onInspectResearch: () => void;
+  onOpenResearch: () => void;
+}) {
   return (
     <group position={[-0.965, 0.84, -1.94]}>
       <RoundedBox
@@ -1601,126 +2831,11 @@ function RetroDesk() {
           <meshPhysicalMaterial color="#b97945" roughness={0.76} />
         </RoundedBox>
       ))}
-      {openDrawers.map(({ y, extension }, index) => (
-        <group key={y}>
-          <RoundedBox
-            args={[1.46, 0.1, 1.05]}
-            position={[1.69, y - 0.26, 1.07 + extension]}
-            radius={0.045}
-            smoothness={7}
-            castShadow
-          >
-            <meshPhysicalMaterial color="#c98f59" roughness={0.75} />
-          </RoundedBox>
-          {[1.01, 2.37].map((x) => (
-            <RoundedBox
-              key={`drawer-side-${y}-${x}`}
-              args={[0.1, 0.38, 1.05]}
-              position={[x, y - 0.05, 1.07 + extension]}
-              radius={0.04}
-              smoothness={7}
-              castShadow
-            >
-              <meshPhysicalMaterial color="#c98f59" roughness={0.75} />
-            </RoundedBox>
-          ))}
-          <RoundedBox
-            args={[1.46, 0.38, 0.1]}
-            position={[1.69, y - 0.05, 0.59 + extension]}
-            radius={0.04}
-            smoothness={7}
-          >
-            <meshPhysicalMaterial color="#b97945" roughness={0.76} />
-          </RoundedBox>
-          <RoundedBox
-            args={[1.5, 0.62, 0.09]}
-            position={[1.69, y, 1.615 + extension]}
-            radius={0.075}
-            smoothness={8}
-            castShadow
-          >
-            <meshPhysicalMaterial color="#dea86d" roughness={0.7} />
-          </RoundedBox>
-          <RoundedBox
-            args={[0.46, 0.055, 0.045]}
-            position={[1.69, y + 0.02, 1.68 + extension]}
-            radius={0.025}
-            smoothness={6}
-          >
-            <meshPhysicalMaterial
-              clearcoat={0.18}
-              clearcoatRoughness={0.64}
-              color="#8f603d"
-              roughness={0.6}
-            />
-          </RoundedBox>
-          {index === 0 && (
-            <>
-              <RoundedBox
-                args={[0.58, 0.1, 0.63]}
-                position={[1.38, y - 0.15, 1.04 + extension]}
-                rotation={[0, 0.08, 0]}
-                radius={0.035}
-                smoothness={6}
-              >
-                <meshPhysicalMaterial color="#4f5551" roughness={0.78} />
-              </RoundedBox>
-              <RoundedBox
-                args={[0.62, 0.08, 0.58]}
-                position={[1.93, y - 0.13, 1.16 + extension]}
-                rotation={[0, -0.08, 0]}
-                radius={0.03}
-                smoothness={6}
-              >
-                <meshPhysicalMaterial color="#7e6652" roughness={0.76} />
-              </RoundedBox>
-            </>
-          )}
-          {index === 1 &&
-            ["#eee8d8", "#f3ede1", "#e9e4d8", "#f2ecdf", "#ebe6dc"].map(
-              (color, markerIndex) => (
-                <RoundedBox
-                  key={`${color}-${markerIndex}`}
-                  args={[0.13, 0.1, 0.7]}
-                  position={[
-                    1.34 + markerIndex * 0.18,
-                    y - 0.15,
-                    1.08 + extension,
-                  ]}
-                  radius={0.025}
-                  smoothness={5}
-                >
-                  <meshPhysicalMaterial color={color} roughness={0.72} />
-                </RoundedBox>
-              ),
-            )}
-          {index === 2 && (
-            <>
-              <RoundedBox
-                args={[1.08, 0.12, 0.72]}
-                position={[1.65, y - 0.14, 1.05 + extension]}
-                rotation={[0, 0.06, 0]}
-                radius={0.045}
-                smoothness={7}
-              >
-                <meshPhysicalMaterial color="#596c69" roughness={0.8} />
-              </RoundedBox>
-              <RoundedBox
-                args={[0.34, 0.04, 0.16]}
-                position={[1.65, y - 0.06, 0.79 + extension]}
-                radius={0.025}
-                smoothness={5}
-              >
-                <meshPhysicalMaterial
-                  color="#aaa99f"
-                  metalness={0.12}
-                  roughness={0.58}
-                />
-              </RoundedBox>
-            </>
-          )}
-        </group>
-      ))}
+      <RetroResearchDrawers
+        focused={researchFocused}
+        onInspect={onInspectResearch}
+        onOpenResearch={onOpenResearch}
+      />
       <RoundedBox
         args={[4.75, 3.28, 0.12]}
         position={[0, 1.76, -1.685]}
@@ -1799,21 +2914,270 @@ function RetroDesk() {
         <sphereGeometry args={[0.075, 16, 12]} />
         <meshPhysicalMaterial color="#9f6941" roughness={0.62} />
       </mesh>
-      <RetroTopShelfItems />
-      <RetroDesktopCraftSet />
+      <RetroTopShelfItems
+        focused={teachingFocused}
+        onInspect={onInspectTeaching}
+        onOpenTeaching={onOpenTeaching}
+      />
+      <RetroDesktopCraftSet
+        focused={portfolioFocused}
+        onInspect={onInspectPortfolio}
+        onOpenPortfolio={onOpenPortfolio}
+      />
       <RetroDeskLamp />
-      <RetroSideBriefcase />
+      <RetroSideBriefcase
+        focused={experienceFocused}
+        onInspect={onInspectExperience}
+        onOpenExperience={onOpenExperience}
+      />
     </group>
   );
 }
 
-function RetroLaptop() {
+function useLaptopScreenTexture() {
+  const texture = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    const canvas = document.createElement("canvas");
+    canvas.width = 768;
+    canvas.height = 480;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    context.fillStyle = "#fffafd";
+    context.fillRect(0, 0, 768, 480);
+
+    context.save();
+    context.translate(390, 270);
+    context.rotate(-0.2);
+    context.globalAlpha = 0.32;
+    context.fillStyle = "#e9a7c1";
+    context.beginPath();
+    context.moveTo(0, 112);
+    context.bezierCurveTo(-230, -20, -120, -180, 0, -72);
+    context.bezierCurveTo(120, -180, 230, -20, 0, 112);
+    context.fill();
+    context.restore();
+
+    context.strokeStyle = "#ef91bd";
+    context.lineWidth = 3;
+    context.strokeRect(1.5, 1.5, 765, 477);
+
+    [
+      [52, 48, "♥", "LIKE"],
+      [132, 48, "★", "STAR"],
+      [52, 122, "▰", "FOLDER"],
+      [132, 122, "▣", "FILE"],
+      [52, 196, "▤", "DISK"],
+      [132, 196, "▣", "CAMERA"],
+      [52, 270, "♡", "BROKEN"],
+      [132, 270, "♢", "RECYCLE"],
+      [52, 344, "▧", "ART"],
+      [132, 344, "●", "GAME"],
+    ].forEach(([x, y, symbol, label], index) => {
+      context.fillStyle = index % 3 === 0 ? "#e76aa3" : "#c883bc";
+      context.font = "700 38px 'Courier New'";
+      context.textAlign = "center";
+      context.fillText(String(symbol), Number(x), Number(y));
+      context.fillStyle = "#cf6a9b";
+      context.font = "700 13px 'Courier New'";
+      context.fillText(String(label), Number(x), Number(y) + 22);
+    });
+
+    context.strokeStyle = "#e980b2";
+    context.lineWidth = 5;
+    context.beginPath();
+    context.moveTo(694, 28);
+    context.lineTo(740, 28);
+    context.lineTo(728, 42);
+    context.lineTo(728, 60);
+    context.lineTo(740, 74);
+    context.lineTo(694, 74);
+    context.lineTo(706, 60);
+    context.lineTo(706, 42);
+    context.closePath();
+    context.stroke();
+
+    const popup = LAPTOP_POPUP;
+    context.fillStyle = "rgba(83, 48, 111, 0.24)";
+    context.fillRect(popup.x + 27, popup.y + 24, popup.width, popup.height);
+    context.fillStyle = "#fff0fa";
+    context.fillRect(popup.x, popup.y, popup.width, popup.height);
+    context.strokeStyle = "#815487";
+    context.lineWidth = 9;
+    context.strokeRect(popup.x, popup.y, popup.width, popup.height);
+    context.fillStyle = "#b678b3";
+    context.fillRect(popup.x + 4.5, popup.y + 4.5, popup.width - 9, 51);
+    context.fillStyle = "#f8d6ec";
+    context.font = "700 24px 'Courier New'";
+    context.textAlign = "left";
+    context.fillText("PROJECTS.EXE", popup.x + 27, popup.y + 39);
+    context.fillStyle = "#f4badb";
+    context.fillRect(popup.x + popup.width - 52.5, popup.y + 12, 37.5, 34.5);
+    context.fillStyle = "#84517f";
+    context.font = "700 27px 'Courier New'";
+    context.textAlign = "center";
+    context.fillText("×", popup.x + popup.width - 33.75, popup.y + 39);
+
+    context.fillStyle = "#c76f9f";
+    context.font = "700 42px 'Courier New'";
+    context.fillText(
+      "OPEN PROJECTS?",
+      popup.x + popup.width / 2,
+      popup.y + 138,
+    );
+    context.fillStyle = "#fff9fd";
+    const buttonLabels = ["YES", "OK", "ALWAYS"];
+    buttonLabels.forEach((label, index) => {
+      const x = popup.x + 81 + index * 168;
+      const y = popup.y + 186;
+      context.fillRect(x, y, 132, 54);
+      context.strokeStyle = "#7f4f86";
+      context.lineWidth = 7;
+      context.strokeRect(x, y, 132, 54);
+      context.fillStyle = "#bf6796";
+      context.font = "700 23px 'Courier New'";
+      context.fillText(label, x + 66, y + 35);
+      context.fillStyle = "#fff9fd";
+    });
+
+    context.fillStyle = "#6f477a";
+    context.beginPath();
+    context.moveTo(406.5, 313.5);
+    context.lineTo(406.5, 379.5);
+    context.lineTo(426, 363);
+    context.lineTo(442.5, 393);
+    context.lineTo(457.5, 384);
+    context.lineTo(441, 354);
+    context.lineTo(468, 349.5);
+    context.closePath();
+    context.fill();
+    context.strokeStyle = "#fff";
+    context.lineWidth = 4;
+    context.stroke();
+
+    context.fillStyle = "#f7e1ef";
+    context.fillRect(0, 431, 768, 49);
+    context.strokeStyle = "#e67fac";
+    context.lineWidth = 3;
+    context.beginPath();
+    context.moveTo(0, 431);
+    context.lineTo(768, 431);
+    context.stroke();
+    context.fillStyle = "#ce709e";
+    context.font = "700 20px 'Courier New'";
+    context.textAlign = "left";
+    context.fillText("12:00 AM", 16, 462);
+
+    for (let index = 0; index < 15; index += 1) {
+      const x = 150 + index * 34;
+      context.fillStyle =
+        index === 13 ? "#73d7a4" : index % 3 === 0 ? "#9eddf1" : "#d4a2dd";
+      context.fillRect(x, 444, 24, 23);
+      context.strokeStyle = "#df6fa5";
+      context.lineWidth = 2;
+      context.strokeRect(x, 444, 24, 23);
+    }
+
+    context.fillStyle = "#fbe8f4";
+    context.fillRect(704, 160, 62, 255);
+    context.strokeStyle = "#e785b2";
+    context.lineWidth = 3;
+    context.strokeRect(704, 160, 62, 255);
+    for (let row = 0; row < 6; row += 1) {
+      context.strokeRect(713, 171 + row * 39, 18, 18);
+      context.strokeRect(739, 171 + row * 39, 18, 18);
+    }
+
+    const nextTexture = new THREE.CanvasTexture(canvas);
+    nextTexture.colorSpace = THREE.SRGBColorSpace;
+    nextTexture.minFilter = THREE.LinearFilter;
+    nextTexture.magFilter = THREE.LinearFilter;
+    nextTexture.anisotropy = 4;
+    return nextTexture;
+  }, []);
+
+  useEffect(() => () => texture?.dispose(), [texture]);
+  return texture;
+}
+
+function RetroLaptop({
+  focused,
+  onInspect,
+  onOpenProjects,
+}: {
+  focused: boolean;
+  onInspect: () => void;
+  onOpenProjects: () => void;
+}) {
+  const screenTexture = useLaptopScreenTexture();
+  const [hovered, setHovered] = useState(false);
+  const [projectButtonHovered, setProjectButtonHovered] = useState(false);
+  const keyboardRows = [
+    { count: 13, z: -0.17, offset: 0 },
+    { count: 12, z: -0.07, offset: 0.035 },
+    { count: 12, z: 0.03, offset: 0.01 },
+    { count: 11, z: 0.13, offset: -0.015 },
+  ];
+
+  useEffect(() => {
+    document.body.style.cursor =
+      focused && projectButtonHovered
+        ? "pointer"
+        : hovered && !focused
+          ? "zoom-in"
+          : "auto";
+    return () => {
+      document.body.style.cursor = "auto";
+    };
+  }, [focused, hovered, projectButtonHovered]);
+
+  function handleLaptopClick(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation();
+    if (!focused) {
+      onInspect();
+    }
+  }
+
+  function handleScreenPointer(event: ThreeEvent<PointerEvent>) {
+    event.stopPropagation();
+    setProjectButtonHovered(focused && isLaptopProjectButtonHit(event.uv));
+  }
+
+  function handleScreenClick(event: ThreeEvent<MouseEvent>) {
+    event.stopPropagation();
+    if (!focused) {
+      onInspect();
+      return;
+    }
+    if (isLaptopProjectButtonHit(event.uv)) {
+      onOpenProjects();
+    }
+  }
+
   return (
     <group
-      position={[-2.08, 0.96, -1.4]}
-      rotation={[0, THREE.MathUtils.degToRad(28), 0]}
-      scale={1.25}
+      position={LAPTOP_POSITION}
+      rotation={[0, LAPTOP_YAW, 0]}
+      scale={LAPTOP_SCALE}
+      onClick={handleLaptopClick}
+      onPointerEnter={(event) => {
+        event.stopPropagation();
+        setHovered(true);
+      }}
+      onPointerLeave={() => {
+        setHovered(false);
+        setProjectButtonHovered(false);
+      }}
     >
+      <mesh position={[0, 0.18, 0.02]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[2.35, 1.85]} />
+        <meshBasicMaterial
+          depthWrite={false}
+          opacity={0}
+          side={THREE.DoubleSide}
+          transparent
+        />
+      </mesh>
       <RoundedBox
         args={[1.45, 0.09, 0.95]}
         position={[0, 0.045, 0]}
@@ -1822,47 +3186,81 @@ function RetroLaptop() {
         castShadow
       >
         <meshPhysicalMaterial
-          clearcoat={0.14}
-          clearcoatRoughness={0.58}
-          color="#dfe4e1"
-          metalness={0.04}
-          roughness={0.56}
+          clearcoat={0.2}
+          clearcoatRoughness={0.5}
+          color={focused ? "#ddd9df" : "#cfd1d2"}
+          metalness={0.08}
+          roughness={0.48}
         />
       </RoundedBox>
+      {keyboardRows.map(({ count, z, offset }, rowIndex) =>
+        Array.from({ length: count }, (_, keyIndex) => {
+          const x = (keyIndex - (count - 1) / 2) * 0.092 + offset;
+          const accent =
+            (rowIndex === 1 && keyIndex === 1) ||
+            (rowIndex === 2 && keyIndex === count - 2);
+          return (
+            <RoundedBox
+              key={`laptop-key-${rowIndex}-${keyIndex}`}
+              args={[0.078, 0.018, 0.067]}
+              position={[x, 0.107, z]}
+              radius={0.009}
+              smoothness={4}
+            >
+              <meshPhysicalMaterial
+                color={accent ? "#e9a8bd" : "#f3f0e9"}
+                roughness={0.66}
+              />
+            </RoundedBox>
+          );
+        }),
+      )}
       <RoundedBox
-        args={[1.16, 0.018, 0.48]}
-        position={[0, 0.098, -0.04]}
+        args={[0.5, 0.018, 0.065]}
+        position={[0, 0.107, 0.225]}
+        radius={0.012}
+        smoothness={5}
+      >
+        <meshPhysicalMaterial color="#f3f0e9" roughness={0.66} />
+      </RoundedBox>
+      <RoundedBox
+        args={[0.46, 0.012, 0.2]}
+        position={[0, 0.108, 0.355]}
         radius={0.025}
         smoothness={6}
       >
-        <meshPhysicalMaterial color="#65777a" roughness={0.7} />
+        <meshPhysicalMaterial color="#b8bbbc" roughness={0.62} />
       </RoundedBox>
-      {[-0.15, -0.05, 0.05, 0.15].map((z) => (
-        <RoundedBox
-          key={`keyboard-row-${z}`}
-          args={[1.02, 0.012, 0.018]}
-          position={[0, 0.111, z - 0.05]}
-          radius={0.006}
-          smoothness={4}
-        >
-          <meshStandardMaterial color="#b7c2c0" roughness={0.72} />
-        </RoundedBox>
-      ))}
       <RoundedBox
-        args={[0.42, 0.014, 0.22]}
-        position={[0, 0.11, 0.3]}
+        args={[0.19, 0.012, 0.1]}
+        position={[-0.5, 0.108, 0.335]}
+        rotation={[0, 0.08, 0]}
         radius={0.025}
         smoothness={6}
       >
-        <meshStandardMaterial color="#c6cecb" roughness={0.68} />
+        <meshPhysicalMaterial color="#e4a6bd" roughness={0.64} />
       </RoundedBox>
+      <mesh
+        position={[0.49, 0.111, 0.34]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <circleGeometry args={[0.085, 18]} />
+        <meshPhysicalMaterial color="#a9ca69" roughness={0.64} />
+      </mesh>
+      <mesh
+        position={[-0.52, 0.112, 0.22]}
+        rotation={[-Math.PI / 2, 0, 0]}
+      >
+        <circleGeometry args={[0.045, 16]} />
+        <meshPhysicalMaterial color="#e7c34f" roughness={0.64} />
+      </mesh>
       <mesh position={[0, 0.1, -0.43]} rotation={[0, 0, Math.PI / 2]}>
         <cylinderGeometry args={[0.045, 0.045, 1.2, 16]} />
-        <meshPhysicalMaterial color="#aeb9b7" roughness={0.58} />
+        <meshPhysicalMaterial color="#9da0a1" roughness={0.54} />
       </mesh>
       <group
         position={[0, 0.09, -0.43]}
-        rotation={[-THREE.MathUtils.degToRad(13), 0, 0]}
+        rotation={[-LAPTOP_LID_TILT, 0, 0]}
       >
         <RoundedBox
           args={[1.4, 0.9, 0.065]}
@@ -1872,33 +3270,63 @@ function RetroLaptop() {
           castShadow
         >
           <meshPhysicalMaterial
-            clearcoat={0.12}
-            clearcoatRoughness={0.62}
-            color="#d7dedb"
-            metalness={0.04}
-            roughness={0.54}
+            clearcoat={0.2}
+            clearcoatRoughness={0.5}
+            color="#cfd1d2"
+            metalness={0.08}
+            roughness={0.48}
           />
         </RoundedBox>
         <RoundedBox
-          args={[1.18, 0.67, 0.018]}
+          args={[1.25, 0.74, 0.024]}
           position={[0, 0.48, 0.043]}
-          radius={0.035}
+          radius={0.045}
           smoothness={7}
         >
-          <meshPhysicalMaterial
-            clearcoat={0.18}
-            clearcoatRoughness={0.46}
-            color="#8fc6ce"
-            emissive="#83bac3"
-            emissiveIntensity={0.12}
-            roughness={0.42}
-          />
+          <meshPhysicalMaterial color="#17191f" roughness={0.5} />
         </RoundedBox>
-        <mesh position={[0, 0.84, 0.044]}>
+        <mesh position={[0, 0.5, 0.02]} onClick={handleLaptopClick}>
+          <planeGeometry args={[2.7, 1.95]} />
+          <meshBasicMaterial
+            depthWrite={false}
+            opacity={0}
+            side={THREE.DoubleSide}
+            transparent
+          />
+        </mesh>
+        <mesh
+          ref={(mesh) => {
+            laptopScreenRef.current = mesh;
+          }}
+          position={[0, 0.48, 0.059]}
+          onClick={handleScreenClick}
+          onPointerMove={handleScreenPointer}
+          onPointerOver={handleScreenPointer}
+        >
+          <planeGeometry args={[1.17, 0.66]} />
+          <meshBasicMaterial
+            color={screenTexture ? "#ffffff" : "#171c28"}
+            map={screenTexture ?? undefined}
+            toneMapped={false}
+          />
+        </mesh>
+        <mesh position={[0, 0.835, 0.058]}>
           <sphereGeometry args={[0.022, 12, 10]} />
-          <meshStandardMaterial color="#718083" roughness={0.56} />
+          <meshStandardMaterial color="#62686b" roughness={0.56} />
         </mesh>
       </group>
+      {hovered && !focused && (
+        <Html
+          center
+          position={[0, 1.18, 0]}
+          style={{ pointerEvents: "none" }}
+        >
+          <div className="computer-hover-prompt">
+            <span>COMPUTER · DETAIL</span>
+            Click to inspect
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
@@ -2232,7 +3660,7 @@ function AboutPortrait({ onEnter }: ObjectSetProps) {
       position={[-2.35, 2.35, -3.55]}
       label="Meet me"
       section="01 · About"
-      href="/about"
+      href="/"
       onEnter={onEnter}
       labelPosition={[0, 0.9, 0]}
     >
@@ -2301,9 +3729,9 @@ function EducationBooks({ onEnter }: ObjectSetProps) {
   return (
     <InteractiveObject
       position={[-3.55, 0.8, -3.28]}
-      label="Open education"
-      section="03 · Education"
-      href="/education"
+      label="Open teaching"
+      section="03 · Teaching"
+      href="/teaching"
       onEnter={onEnter}
       rotation={[0, 0.08, 0]}
       labelPosition={[0, 1.05, 0]}
@@ -2431,11 +3859,51 @@ function PortfolioCamera({ onEnter }: ObjectSetProps) {
 function StudyWorld({
   focus,
   entering,
+  computerFocused,
+  portfolioFocused,
+  idCardFocused,
+  teachingFocused,
+  experienceFocused,
+  researchFocused,
+  phoneFocused,
+  reducedMotion,
   onEnter,
+  onInspectComputer,
+  onOpenProjects,
+  onInspectPortfolio,
+  onOpenPortfolio,
+  onInspectIdCard,
+  onInspectTeaching,
+  onOpenTeaching,
+  onInspectExperience,
+  onOpenExperience,
+  onInspectResearch,
+  onOpenResearch,
+  onInspectPhone,
 }: {
   focus: Point | null;
   entering: boolean;
+  computerFocused: boolean;
+  portfolioFocused: boolean;
+  idCardFocused: boolean;
+  teachingFocused: boolean;
+  experienceFocused: boolean;
+  researchFocused: boolean;
+  phoneFocused: boolean;
+  reducedMotion: boolean;
   onEnter: (position: Point, href: string) => void;
+  onInspectComputer: () => void;
+  onOpenProjects: () => void;
+  onInspectPortfolio: () => void;
+  onOpenPortfolio: () => void;
+  onInspectIdCard: () => void;
+  onInspectTeaching: () => void;
+  onOpenTeaching: () => void;
+  onInspectExperience: () => void;
+  onOpenExperience: () => void;
+  onInspectResearch: () => void;
+  onOpenResearch: () => void;
+  onInspectPhone: () => void;
 }) {
   return (
     <>
@@ -2468,11 +3936,34 @@ function StudyWorld({
 
       <group position={[0, 0, 0]}>
         <RoomShell />
-        <RetroDesk />
-        <RetroFloorPhone />
+        <RetroDesk
+          portfolioFocused={portfolioFocused}
+          teachingFocused={teachingFocused}
+          experienceFocused={experienceFocused}
+          researchFocused={researchFocused}
+          onInspectPortfolio={onInspectPortfolio}
+          onOpenPortfolio={onOpenPortfolio}
+          onInspectTeaching={onInspectTeaching}
+          onOpenTeaching={onOpenTeaching}
+          onInspectExperience={onInspectExperience}
+          onOpenExperience={onOpenExperience}
+          onInspectResearch={onInspectResearch}
+          onOpenResearch={onOpenResearch}
+        />
+        <RetroFloorPhone
+          focused={phoneFocused}
+          onInspect={onInspectPhone}
+        />
         <RetroPrinter />
-        <RetroWallHooks />
-        <RetroLaptop />
+        <RetroWallHooks
+          focused={idCardFocused}
+          onInspect={onInspectIdCard}
+        />
+        <RetroLaptop
+          focused={computerFocused}
+          onInspect={onInspectComputer}
+          onOpenProjects={onOpenProjects}
+        />
         <RetroChair />
         {SHOW_LEGACY_FURNITURE && (
           <>
@@ -2490,7 +3981,40 @@ function StudyWorld({
         )}
       </group>
 
-      <CameraRig focus={focus} entering={entering} />
+      <CameraRig
+        detailView={
+          computerFocused
+            ? "computer"
+            : idCardFocused
+              ? "idcard"
+              : teachingFocused
+                ? "teaching"
+                : experienceFocused
+                  ? "experience"
+                  : researchFocused
+                    ? "research"
+                    : portfolioFocused
+                      ? "portfolio"
+                      : null
+        }
+        entering={entering}
+        focus={
+          computerFocused
+            ? LAPTOP_FOCUS_POINT
+            : idCardFocused
+              ? ID_CARD_FOCUS_POINT
+              : teachingFocused
+                ? TEACHING_FOCUS_POINT
+                : experienceFocused
+                  ? EXPERIENCE_FOCUS_POINT
+                  : researchFocused
+                    ? RESEARCH_FOCUS_POINT
+                    : portfolioFocused
+                      ? PORTFOLIO_FOCUS_POINT
+                      : focus
+        }
+        reducedMotion={reducedMotion}
+      />
       <AdaptiveDpr pixelated />
     </>
   );
@@ -2500,7 +4024,80 @@ export function StudyScene() {
   const router = useRouter();
   const [focus, setFocus] = useState<Point | null>(null);
   const [entering, setEntering] = useState(false);
+  const [computerFocused, setComputerFocused] = useState(false);
+  const [portfolioFocused, setPortfolioFocused] = useState(false);
+  const [idCardFocused, setIdCardFocused] = useState(false);
+  const [teachingFocused, setTeachingFocused] = useState(false);
+  const [experienceFocused, setExperienceFocused] = useState(false);
+  const [researchFocused, setResearchFocused] = useState(false);
+  const [phoneFocused, setPhoneFocused] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
+  const inspecting =
+    computerFocused ||
+    portfolioFocused ||
+    idCardFocused ||
+    teachingFocused ||
+    experienceFocused ||
+    researchFocused ||
+    phoneFocused;
+  const inspectionCopy = idCardFocused
+    ? {
+        index: "WALL OBJECT · 02",
+        title: "Student ID",
+        detail: `${siteProfile.name} · ${siteProfile.role}`,
+        hint: "Press Esc to return",
+      }
+    : computerFocused
+      ? {
+          index: "DESK OBJECT · 01",
+          title: "Study laptop",
+          detail: "Silver shell · custom screen · sticker keyboard",
+          hint: "Press Esc to return",
+        }
+      : teachingFocused
+        ? {
+            index: "SHELF OBJECT · 03",
+            title: "Teaching",
+            detail: "Top shelf · books · folders",
+            hint: "Click again to open Teaching",
+          }
+        : researchFocused
+          ? {
+              index: "DESK OBJECT · 04",
+              title: "Research files",
+              detail: "Open drawers · folders · notes",
+              hint: "Click again to open Research",
+            }
+          : experienceFocused
+            ? {
+                index: "DESK OBJECT · 05",
+                title: "Briefcase",
+                detail: "Black case · side buckle · work bag",
+                hint: "Click again to open Experience",
+              }
+            : phoneFocused
+              ? {
+                  index: "FLOOR OBJECT · 08",
+                  title: "Keitai phone",
+                  detail: "Guestbook · write a text · read notes",
+                  hint: "Press Esc to return",
+                }
+            : {
+                index: "DESK OBJECT · 06",
+                title: "Sketchboard",
+                detail: "Cutting mat · grid paper · stationery set",
+                hint: "Click again to open Portfolio",
+              };
+
+  function clearInspect() {
+    setComputerFocused(false);
+    setPortfolioFocused(false);
+    setIdCardFocused(false);
+    setTeachingFocused(false);
+    setExperienceFocused(false);
+    setResearchFocused(false);
+    setPhoneFocused(false);
+  }
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -2509,6 +4106,16 @@ export function StudyScene() {
     media.addEventListener("change", updatePreference);
     return () => media.removeEventListener("change", updatePreference);
   }, []);
+
+  useEffect(() => {
+    if (!inspecting) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      clearInspect();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [inspecting]);
 
   function enterSection(position: Point, href: string) {
     if (entering) return;
@@ -2522,7 +4129,11 @@ export function StudyScene() {
   }
 
   return (
-    <div className={`study-canvas ${entering ? "is-entering" : ""}`}>
+    <div
+      className={`study-canvas ${entering ? "is-entering" : ""} ${
+        inspecting ? "is-inspecting" : ""
+      }`}
+    >
       <Canvas
         orthographic
         shadows
@@ -2545,8 +4156,127 @@ export function StudyScene() {
           </div>
         }
       >
-        <StudyWorld focus={focus} entering={entering} onEnter={enterSection} />
+        <StudyWorld
+          computerFocused={computerFocused}
+          portfolioFocused={portfolioFocused}
+          idCardFocused={idCardFocused}
+          teachingFocused={teachingFocused}
+          experienceFocused={experienceFocused}
+          researchFocused={researchFocused}
+          phoneFocused={phoneFocused}
+          entering={entering}
+          focus={focus}
+          onEnter={enterSection}
+          onInspectComputer={() => {
+            setFocus(null);
+            setPortfolioFocused(false);
+            setIdCardFocused(false);
+            setTeachingFocused(false);
+            setExperienceFocused(false);
+            setResearchFocused(false);
+            setPhoneFocused(false);
+            setComputerFocused(true);
+          }}
+          onOpenProjects={() =>
+            enterSection(LAPTOP_FOCUS_POINT, "/projects")
+          }
+          onInspectPortfolio={() => {
+            setFocus(null);
+            setComputerFocused(false);
+            setIdCardFocused(false);
+            setTeachingFocused(false);
+            setExperienceFocused(false);
+            setResearchFocused(false);
+            setPhoneFocused(false);
+            setPortfolioFocused(true);
+          }}
+          onOpenPortfolio={() =>
+            enterSection(PORTFOLIO_FOCUS_POINT, "/portfolio")
+          }
+          onInspectIdCard={() => {
+            setFocus(null);
+            setComputerFocused(false);
+            setPortfolioFocused(false);
+            setTeachingFocused(false);
+            setExperienceFocused(false);
+            setResearchFocused(false);
+            setPhoneFocused(false);
+            setIdCardFocused(true);
+          }}
+          onInspectTeaching={() => {
+            setFocus(null);
+            setComputerFocused(false);
+            setPortfolioFocused(false);
+            setIdCardFocused(false);
+            setExperienceFocused(false);
+            setResearchFocused(false);
+            setPhoneFocused(false);
+            setTeachingFocused(true);
+          }}
+          onOpenTeaching={() =>
+            enterSection(TEACHING_FOCUS_POINT, "/teaching")
+          }
+          onInspectExperience={() => {
+            setFocus(null);
+            setComputerFocused(false);
+            setPortfolioFocused(false);
+            setIdCardFocused(false);
+            setTeachingFocused(false);
+            setResearchFocused(false);
+            setPhoneFocused(false);
+            setExperienceFocused(true);
+          }}
+          onOpenExperience={() =>
+            enterSection(EXPERIENCE_FOCUS_POINT, "/experience")
+          }
+          onInspectResearch={() => {
+            setFocus(null);
+            setComputerFocused(false);
+            setPortfolioFocused(false);
+            setIdCardFocused(false);
+            setTeachingFocused(false);
+            setExperienceFocused(false);
+            setPhoneFocused(false);
+            setResearchFocused(true);
+          }}
+          onOpenResearch={() =>
+            enterSection(RESEARCH_FOCUS_POINT, "/research")
+          }
+          onInspectPhone={() => {
+            setFocus(null);
+            setComputerFocused(false);
+            setPortfolioFocused(false);
+            setIdCardFocused(false);
+            setTeachingFocused(false);
+            setExperienceFocused(false);
+            setResearchFocused(false);
+            setPhoneFocused(true);
+          }}
+          reducedMotion={reducedMotion}
+        />
       </Canvas>
+      {inspecting && (
+        <div className="computer-inspection-ui" aria-live="polite">
+          <button
+            className="computer-inspection-back"
+            type="button"
+            onClick={clearInspect}
+          >
+            <span aria-hidden="true">←</span>
+            Back to room
+          </button>
+          {phoneFocused ? (
+            <PhoneGuestbook />
+          ) : (
+            <div className="computer-detail-card">
+              <span>{inspectionCopy.index}</span>
+              <strong>{inspectionCopy.title}</strong>
+              <p>{inspectionCopy.detail}</p>
+              <small>{inspectionCopy.hint}</small>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -11,7 +11,7 @@ export default function ResearchPage() {
   return (
     <SectionShell
       number="04"
-      eyebrow="The notebook by the window"
+      eyebrow="The files in the drawer"
       title="Questions worth following."
       introduction="Research papers, ongoing inquiries, and collaborative studies focused on making a meaningful contribution."
     >

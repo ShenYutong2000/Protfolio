@@ -9,7 +9,7 @@ export default function ExperiencePage() {
   return (
     <SectionShell
       number="05"
-      eyebrow="The calendar on the wall"
+      eyebrow="The briefcase by the desk"
       title="Work with purpose."
       introduction="Professional experiences where I learned, collaborated, and turned ideas into outcomes."
     >

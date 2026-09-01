@@ -61,12 +61,13 @@ export const siteProfile = {
     { label: "GitHub", href: "https://github.com/" },
     { label: "LinkedIn", href: "https://www.linkedin.com/" },
   ],
+  resumeHref: "/Kathleen-Resume.pdf",
+  resumeDownloadName: "Kathleen-Resume.pdf",
 };
 
 export const navigation = [
-  { href: "/about", label: "About" },
   { href: "/projects", label: "Projects" },
-  { href: "/education", label: "Education" },
+  { href: "/teaching", label: "Teaching" },
   { href: "/research", label: "Research" },
   { href: "/experience", label: "Experience" },
   { href: "/portfolio", label: "Portfolio" },
