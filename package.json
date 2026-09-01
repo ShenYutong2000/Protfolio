@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "check:study-model": "node scripts/check-study-model.mjs",
+    "optimize:study-model": "gltf-transform optimize --simplify-ratio 0.08 --simplify-error 0.01 --simplify-lock-border false --texture-size 512 --texture-compress webp --compress meshopt --flatten true --join true --prune true --prune-attributes true --resample true --weld true",
+    "img2threejs": "node scripts/img2threejs.mjs"
   },
   "repository": {
     "type": "git",
@@ -31,6 +34,7 @@
     "three": "^0.185.1"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.5.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.4.0",
     "@types/react": "^19.2.18",

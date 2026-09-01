@@ -67,9 +67,14 @@ export function PhoneGuestbook() {
   const [draftFrom, setDraftFrom] = useState("");
   const [draftText, setDraftText] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
-    setMessages(loadMessages());
+    const frame = window.requestAnimationFrame(() => {
+      setMessages(loadMessages());
+      setNow(Date.now());
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   const current = messages[index] ?? messages[0];
@@ -182,7 +187,7 @@ export function PhoneGuestbook() {
           <>
             <div className="phone-os-meta">
               <span aria-hidden="true">✉</span>
-              <time>{formatPhoneDate(Date.now())}</time>
+              <time>{formatPhoneDate(now ?? SAMPLE_MESSAGE.createdAt)}</time>
             </div>
             <label className="phone-os-sr" htmlFor="phone-message">
               Message
