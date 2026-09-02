@@ -14,16 +14,19 @@ import {
   Float,
   Html,
   RoundedBox,
+  useTexture,
 } from "@react-three/drei";
 import * as THREE from "three";
 import { siteProfile } from "@/data/content";
 import { PhoneGuestbook } from "@/components/study/PhoneGuestbook";
+import { StudyModelSlot, preloadStudyModel } from "@/components/study/StudyModel";
+import { studyModelConfigs } from "@/components/study/studyModels";
 
 const palette = {
-  shell: "#f5e5e2",
+  shell: "#c9a3b0",
   shellDark: "#82bac3",
   floorPink: "#f2c6d0",
-  wall: "#fff7ef",
+  wall: "#c9a3b0",
   cream: "#fff8e9",
   mint: "#badcca",
   blue: "#9bcfd7",
@@ -46,7 +49,7 @@ const WINDOW_CENTER_Z = -0.1;
 
 type Point = [number, number, number];
 
-const LAPTOP_POSITION: Point = [-2.08, 0.96, -1.4];
+const LAPTOP_POSITION: Point = [-2.08, 1.36, -1.4];
 const LAPTOP_SCALE = 1.25;
 const LAPTOP_YAW = THREE.MathUtils.degToRad(28);
 const LAPTOP_LID_TILT = THREE.MathUtils.degToRad(13);
@@ -93,7 +96,7 @@ const PHONE_POSITION: Point = [3.08, FLOOR_TOP, -0.18];
 const PHONE_YAW = THREE.MathUtils.degToRad(-45);
 const RESUME_HREF = siteProfile.resumeHref;
 const ID_CARD_HOOKS_POSITION: Point = [2.75, 3.85, -3.62];
-const ID_CARD_LOCAL_POSITION = new THREE.Vector3(-0.52, -1.16, 0.22);
+const ID_CARD_LOCAL_POSITION = new THREE.Vector3(-0.45, -0.18, 0.3);
 const ID_CARD_ROLL = 0.025;
 const ID_CARD_CENTER = new THREE.Vector3();
 const idCardFaceRef: { current: THREE.Mesh | null } = { current: null };
@@ -255,11 +258,13 @@ function CameraRig({
   entering,
   detailView,
   reducedMotion,
+  floorLift,
 }: {
   focus: Point | null;
   entering: boolean;
   detailView: DetailView;
   reducedMotion: boolean;
+  floorLift: number;
 }) {
   useFrame((state, delta) => {
     const pointerX = state.pointer.x * 0.08;
@@ -275,7 +280,7 @@ function CameraRig({
     const target = face
       ? face.center
       : focus
-        ? new THREE.Vector3(...focus)
+        ? new THREE.Vector3(focus[0], focus[1] + floorLift, focus[2])
         : overviewTarget;
     const faceDistance = detailView === "idcard" ? 4.8 : 5.2;
     const destination =
@@ -409,6 +414,27 @@ function CameraRig({
 }
 
 function RoomShell() {
+  const wallpaper = useTexture("/assets/study-wallpaper.jpg");
+  const floor = useTexture("/assets/study-floor.png");
+  const wallpaperTexture = useMemo(() => {
+    const texture = wallpaper.clone();
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1.78 / 4.5, 1 / 4.5);
+    texture.needsUpdate = true;
+    return texture;
+  }, [wallpaper]);
+  const floorTexture = useMemo(() => {
+    const texture = floor.clone();
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1.83, 1);
+    texture.needsUpdate = true;
+    return texture;
+  }, [floor]);
+
   const leftWallShape = useMemo(() => {
     const wallBack = ROOM_CENTER_Z - ROOM_SIZE / 2 + 0.18;
     const wallFront = ROOM_CENTER_Z + ROOM_SIZE / 2 - 0.1;
@@ -471,7 +497,8 @@ function RoomShell() {
         smoothness={8}
       >
         <meshStandardMaterial
-          color={palette.floorPink}
+          map={floorTexture}
+          color="#e8d2bb"
           metalness={0}
           roughness={0.84}
         />
@@ -488,7 +515,8 @@ function RoomShell() {
         receiveShadow
       >
         <meshStandardMaterial
-          color={palette.wall}
+          map={wallpaperTexture}
+          color="#ffffff"
           metalness={0}
           roughness={0.9}
         />
@@ -513,7 +541,8 @@ function RoomShell() {
           ]}
         />
         <meshStandardMaterial
-          color={palette.shell}
+          map={wallpaperTexture}
+          color="#ffffff"
           roughness={0.88}
           side={THREE.DoubleSide}
         />
@@ -568,6 +597,10 @@ function RetroFloorPhone({
       }}
       onPointerLeave={() => setHovered(false)}
     >
+      <StudyModelSlot
+        config={studyModelConfigs.phone}
+        fallback={null}
+      />
       <mesh position={[0, 0.22, 0]} rotation={[-0.85, 0, 0]}>
         <planeGeometry args={[0.95, 1.15]} />
         <meshBasicMaterial
@@ -577,6 +610,7 @@ function RetroFloorPhone({
           transparent
         />
       </mesh>
+      <group visible={false}>
       <RoundedBox
         args={[0.34, 0.1, 0.72]}
         position={[0, 0.05, 0]}
@@ -706,6 +740,7 @@ function RetroFloorPhone({
       >
         <meshPhysicalMaterial color="#c6699d" roughness={0.66} />
       </RoundedBox>
+      </group>
       {hovered && !focused && (
         <Html
           center
@@ -831,6 +866,10 @@ function RetroPrinter() {
       }}
       onPointerLeave={() => setHovered(false)}
     >
+      <StudyModelSlot
+        config={studyModelConfigs.printer}
+        fallback={null}
+      />
       <mesh position={[0, 0.72, 0.28]} rotation={[-0.28, 0, 0]}>
         <planeGeometry args={[1.55, 1.85]} />
         <meshBasicMaterial
@@ -840,6 +879,7 @@ function RetroPrinter() {
           transparent
         />
       </mesh>
+      <group visible={false}>
       {[
         [-0.53, -0.28],
         [-0.53, 0.28],
@@ -986,6 +1026,7 @@ function RetroPrinter() {
           roughness={0.58}
         />
       </mesh>
+      </group>
       {hovered && (
         <Html
           center
@@ -1282,6 +1323,27 @@ function RetroStudentId({
       }}
       onPointerLeave={() => setHovered(false)}
     >
+      <StudyModelSlot
+        config={studyModelConfigs.idBag}
+        fallback={null}
+      />
+      <mesh
+        position={[
+          ID_CARD_LOCAL_POSITION.x,
+          ID_CARD_LOCAL_POSITION.y,
+          ID_CARD_LOCAL_POSITION.z,
+        ]}
+        rotation={[0, 0, ID_CARD_ROLL]}
+      >
+        <planeGeometry args={[1.35, 1.05]} />
+        <meshBasicMaterial
+          depthWrite={false}
+          opacity={0}
+          side={THREE.DoubleSide}
+          transparent
+        />
+      </mesh>
+      <group visible={false}>
       <RoundedBox
         args={[0.045, 0.64, 0.045]}
         position={[-0.7, -0.43, 0.17]}
@@ -1413,6 +1475,7 @@ function RetroStudentId({
           </div>
         </Html>
       )}
+      </group>
     </group>
   );
 }
@@ -1429,9 +1492,20 @@ function RetroWallHooks({
     { x: 0, scale: 1 },
     { x: 0.62, scale: 0.82 },
   ];
+  const SHOW_LEGACY_WALL_HANGER = false;
 
   return (
     <group position={ID_CARD_HOOKS_POSITION}>
+      <StudyModelSlot
+        config={studyModelConfigs.clothHandler}
+        fallback={null}
+      />
+      <StudyModelSlot
+        config={studyModelConfigs.umbrella}
+        fallback={null}
+      />
+      {SHOW_LEGACY_WALL_HANGER && (
+        <>
       <RoundedBox
         args={[1.75, 0.18, 0.14]}
         position={[0, 0.01, 0]}
@@ -1490,7 +1564,11 @@ function RetroWallHooks({
           </mesh>
         </group>
       ))}
+        </>
+      )}
       <RetroStudentId focused={focused} onInspect={onInspect} />
+      {SHOW_LEGACY_WALL_HANGER && (
+        <>
       <group
         position={[0.48, -1.27, 0.19]}
         rotation={[0, 0, -0.035]}
@@ -1565,103 +1643,18 @@ function RetroWallHooks({
           <meshPhysicalMaterial color="#e2b3bc" roughness={0.68} />
         </RoundedBox>
       </group>
+        </>
+      )}
     </group>
   );
 }
 
 function RetroDeskLamp() {
-  const neckCurve = useMemo(
-    () =>
-      new THREE.CatmullRomCurve3([
-        new THREE.Vector3(0.28, 0.18, -0.1),
-        new THREE.Vector3(0.36, 0.52, -0.1),
-        new THREE.Vector3(0.34, 0.9, -0.09),
-        new THREE.Vector3(0.16, 1.18, -0.07),
-        new THREE.Vector3(-0.14, 1.34, -0.04),
-        new THREE.Vector3(-0.42, 1.3, -0.02),
-      ]),
-    [],
-  );
-
   return (
-    <group position={[1.78, 0.12, -0.67]} rotation={[0, 0.06, 0]}>
-      <RoundedBox
-        args={[0.78, 0.15, 0.55]}
-        position={[0, 0.075, 0]}
-        radius={0.075}
-        smoothness={10}
-        castShadow
-      >
-        <meshPhysicalMaterial
-          clearcoat={0.08}
-          clearcoatRoughness={0.74}
-          color="#eee2c5"
-          roughness={0.7}
-        />
-      </RoundedBox>
-      <RoundedBox
-        args={[0.34, 0.025, 0.26]}
-        position={[-0.1, 0.162, 0.015]}
-        radius={0.035}
-        smoothness={7}
-      >
-        <meshPhysicalMaterial color="#9fcf9f" roughness={0.66} />
-      </RoundedBox>
-      <mesh position={[-0.1, 0.181, 0.015]}>
-        <cylinderGeometry args={[0.055, 0.055, 0.025, 18]} />
-        <meshPhysicalMaterial
-          color="#f4ecd8"
-          roughness={0.62}
-        />
-      </mesh>
-      <mesh castShadow>
-        <tubeGeometry args={[neckCurve, 32, 0.052, 10, false]} />
-        <meshPhysicalMaterial
-          color="#b8b5a7"
-          metalness={0.12}
-          roughness={0.58}
-        />
-      </mesh>
-      <mesh position={[0.28, 0.24, -0.1]}>
-        <torusGeometry args={[0.065, 0.014, 8, 18]} />
-        <meshPhysicalMaterial color="#817f75" roughness={0.62} />
-      </mesh>
-      <group
-        position={[-0.54, 1.13, -0.01]}
-        rotation={[0, 0, -0.55]}
-      >
-        <mesh position={[0, 0.245, 0]} castShadow>
-          <cylinderGeometry args={[0.11, 0.14, 0.16, 18]} />
-          <meshPhysicalMaterial color="#557f52" roughness={0.65} />
-        </mesh>
-        <mesh castShadow>
-          <cylinderGeometry args={[0.18, 0.34, 0.44, 24, 1, true]} />
-          <meshPhysicalMaterial
-            color="#a8c44f"
-            opacity={0.82}
-            roughness={0.52}
-            side={THREE.DoubleSide}
-            transparent
-          />
-        </mesh>
-        <mesh position={[0, -0.11, 0]}>
-          <sphereGeometry args={[0.115, 16, 12]} />
-          <meshPhysicalMaterial
-            color="#fff1ac"
-            emissive="#f2c86c"
-            emissiveIntensity={0.45}
-            roughness={0.48}
-          />
-        </mesh>
-        <pointLight
-          color="#ffe3a1"
-          decay={2}
-          distance={2.8}
-          intensity={0.42}
-          position={[0, -0.24, 0]}
-        />
-      </group>
-    </group>
+    <StudyModelSlot
+      config={studyModelConfigs.lamp}
+      fallback={null}
+    />
   );
 }
 
@@ -1683,6 +1676,7 @@ function RetroDesktopCraftSet({
     (_, index) => -0.48 + index * 0.16,
   );
   const [hovered, setHovered] = useState(false);
+  const [bookModelLoaded, setBookModelLoaded] = useState(false);
 
   useEffect(() => {
     document.body.style.cursor = hovered
@@ -1724,6 +1718,12 @@ function RetroDesktopCraftSet({
           transparent
         />
       </mesh>
+      <StudyModelSlot
+        config={studyModelConfigs.book}
+        fallback={null}
+        onLoaded={() => setBookModelLoaded(true)}
+      />
+      <group visible={!bookModelLoaded}>
       <RoundedBox
         args={[1.82, 0.035, 1.35]}
         position={[0, 0.155, 0]}
@@ -1862,6 +1862,7 @@ function RetroDesktopCraftSet({
       >
         <meshPhysicalMaterial color="#e6c83f" roughness={0.65} />
       </RoundedBox>
+      </group>
       {hovered && (
         <Html
           center
@@ -1869,7 +1870,7 @@ function RetroDesktopCraftSet({
           style={{ pointerEvents: "none" }}
         >
           <div className="computer-hover-prompt">
-            <span>PORTFOLIO · SKETCHBOARD</span>
+            <span>PORTFOLIO · BOOK</span>
             {focused ? "Click to browse" : "Click to inspect"}
           </div>
         </Html>
@@ -1897,6 +1898,151 @@ function createSpineTexture(
   return texture;
 }
 
+function createFileBinderTexture(
+  color: string,
+  labelStyle: "blank" | "typed",
+  number: string,
+) {
+  return createSpineTexture(128, 512, (context, w, h) => {
+    context.fillStyle = color;
+    context.fillRect(0, 0, w, h);
+    context.fillStyle = "rgba(255,255,255,0.12)";
+    context.fillRect(8, 0, 5, h);
+    context.fillStyle = "rgba(35,35,35,0.16)";
+    context.fillRect(w - 12, 0, 5, h);
+
+    if (labelStyle === "blank") {
+      context.fillStyle = "#232527";
+      roundRectPath(context, 25, 280, 78, 126, 12);
+      context.fill();
+      context.fillStyle = "#f6f5ef";
+      roundRectPath(context, 34, 289, 60, 108, 8);
+      context.fill();
+      context.fillStyle = "#d9dde0";
+      context.fillRect(44, 320, 40, 5);
+      context.fillRect(44, 337, 32, 5);
+    } else {
+      context.fillStyle = "rgba(255,248,230,0.88)";
+      context.fillRect(18, 62, w - 36, 365);
+      context.strokeStyle = "#2f3030";
+      context.lineWidth = 4;
+      context.strokeRect(20, 64, w - 40, 361);
+      context.fillStyle = "#252526";
+      context.textAlign = "center";
+      context.font = "700 42px 'Times New Roman', serif";
+      context.fillText("R", w / 2, 112);
+      context.lineWidth = 2;
+      context.beginPath();
+      context.moveTo(34, 136);
+      context.lineTo(94, 136);
+      context.moveTo(34, 151);
+      context.lineTo(94, 151);
+      context.stroke();
+      context.font = "700 22px 'Times New Roman', serif";
+      context.fillText(number, w / 2, 385);
+      context.beginPath();
+      context.moveTo(34, 402);
+      context.lineTo(94, 402);
+      context.stroke();
+    }
+  });
+}
+
+function ShelfFileRack({
+  color,
+  position,
+  width,
+}: {
+  color: string;
+  position: Point;
+  width: number;
+}) {
+  return (
+    <group position={position}>
+      <RoundedBox
+        args={[width, 0.055, 0.38]}
+        position={[0, 0.03, 0]}
+        radius={0.018}
+        smoothness={5}
+        castShadow
+      >
+        <meshPhysicalMaterial color={color} roughness={0.68} />
+      </RoundedBox>
+      <RoundedBox
+        args={[width, 0.84, 0.045]}
+        position={[0, 0.42, -0.17]}
+        radius={0.022}
+        smoothness={5}
+        castShadow
+      >
+        <meshPhysicalMaterial color={color} roughness={0.68} />
+      </RoundedBox>
+      {[-1, 1].map((side) => (
+        <RoundedBox
+          key={side}
+          args={[0.055, 0.84, 0.38]}
+          position={[side * (width / 2 - 0.0275), 0.42, 0]}
+          radius={0.022}
+          smoothness={5}
+          castShadow
+        >
+          <meshPhysicalMaterial color={color} roughness={0.68} />
+        </RoundedBox>
+      ))}
+      <RoundedBox
+        args={[width - 0.08, 0.1, 0.045]}
+        position={[0, 0.12, 0.17]}
+        radius={0.018}
+        smoothness={5}
+      >
+        <meshPhysicalMaterial color={color} roughness={0.68} />
+      </RoundedBox>
+    </group>
+  );
+}
+
+function ShelfBinder({
+  color,
+  position,
+  texture,
+  width,
+}: {
+  color: string;
+  position: Point;
+  texture: THREE.CanvasTexture | null;
+  width: number;
+}) {
+  return (
+    <group position={position}>
+      <RoundedBox
+        args={[width, 0.82, 0.3]}
+        radius={0.025}
+        smoothness={6}
+        castShadow
+      >
+        <meshPhysicalMaterial color={color} roughness={0.7} />
+      </RoundedBox>
+      <mesh position={[0, 0, 0.157]}>
+        <planeGeometry args={[width - 0.018, 0.78]} />
+        <meshBasicMaterial
+          color={texture ? "#ffffff" : color}
+          map={texture ?? undefined}
+          toneMapped={false}
+        />
+      </mesh>
+      <RoundedBox
+        args={[width * 0.28, 0.055, 0.035]}
+        position={[0, 0.43, 0]}
+        radius={0.014}
+        smoothness={4}
+        castShadow
+      >
+        <meshPhysicalMaterial color={color} roughness={0.7} />
+      </RoundedBox>
+    </group>
+  );
+}
+
 function RetroTopShelfItems({
   focused,
   onInspect,
@@ -1907,6 +2053,8 @@ function RetroTopShelfItems({
   onOpenTeaching: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [book2ModelLoaded, setBook2ModelLoaded] = useState(false);
+  const [notebooksModelLoaded, setNotebooksModelLoaded] = useState(false);
   const spines = useMemo(() => {
     const manga = [1, 2, 3].map((volume) =>
       createSpineTexture(96, 512, (context, w, h) => {
@@ -1993,7 +2141,25 @@ function RetroTopShelfItems({
         context.restore();
       }),
     );
-    return { manga, mercury, dictionary, relativity, pastels };
+    const greenBinders = ["1", "2", "3"].map((number) =>
+      createFileBinderTexture("#b6d63a", "blank", number),
+    );
+    const coloredBinders = [
+      ["#efb2c2", "77"],
+      ["#f0d98b", "79"],
+      ["#a9bfd3", "77"],
+    ].map(([color, number]) =>
+      createFileBinderTexture(color, "typed", number),
+    );
+    return {
+      manga,
+      mercury,
+      dictionary,
+      relativity,
+      pastels,
+      greenBinders,
+      coloredBinders,
+    };
   }, []);
 
   useEffect(() => {
@@ -2015,6 +2181,8 @@ function RetroTopShelfItems({
         spines.dictionary,
         spines.relativity,
         ...spines.pastels,
+        ...spines.greenBinders,
+        ...spines.coloredBinders,
       ].forEach((texture) => texture?.dispose());
     },
     [spines],
@@ -2049,6 +2217,21 @@ function RetroTopShelfItems({
           transparent
         />
       </mesh>
+      <StudyModelSlot
+        config={studyModelConfigs.book2}
+        fallback={null}
+        onLoaded={() => setBook2ModelLoaded(true)}
+      />
+      <StudyModelSlot
+        config={studyModelConfigs.teddybear}
+        fallback={null}
+      />
+      <StudyModelSlot
+        config={studyModelConfigs.notebooks}
+        fallback={null}
+        onLoaded={() => setNotebooksModelLoaded(true)}
+      />
+      <group visible={!book2ModelLoaded}>
       <RoundedBox
         args={[0.5, 0.52, 0.36]}
         position={[-1.9, shelfY + 0.26, -1.48]}
@@ -2174,94 +2357,37 @@ function RetroTopShelfItems({
           />
         </mesh>
       </group>
-      <group position={[0.78, shelfY + 0.22, -1.5]}>
-        <RoundedBox
-          args={[0.54, 0.44, 0.04]}
-          position={[0, 0.14, -0.16]}
-          radius={0.02}
-          smoothness={5}
-        >
-          <meshPhysicalMaterial color="#7b4d9a" roughness={0.72} />
-        </RoundedBox>
-        {[-0.25, 0.25].map((x) => (
-          <RoundedBox
-            key={x}
-            args={[0.045, 0.44, 0.34]}
-            position={[x, 0.14, 0]}
-            radius={0.018}
-            smoothness={5}
-          >
-            <meshPhysicalMaterial color="#7b4d9a" roughness={0.72} />
-          </RoundedBox>
+      </group>
+      <group visible={!notebooksModelLoaded}>
+        <ShelfFileRack
+          color="#b3327e"
+          position={[1.18, shelfY + 0.5, -1.5]}
+          width={0.5}
+        />
+        {[-0.1, 0, 0.1].map((x, index) => (
+          <ShelfBinder
+            key={`green-binder-${x}`}
+            color="#b6d63a"
+            position={[1.18 + x, shelfY + 0.92, -1.46]}
+            texture={spines.greenBinders[index]}
+            width={0.12}
+          />
+        ))}
+        <ShelfFileRack
+          color="#3f78bd"
+          position={[1.78, shelfY + 0.5, -1.5]}
+          width={0.62}
+        />
+        {[-0.17, 0, 0.17].map((x, index) => (
+          <ShelfBinder
+            key={`colored-binder-${x}`}
+            color={["#efb2c2", "#f0d98b", "#a9bfd3"][index]}
+            position={[1.78 + x, shelfY + 0.92, -1.46]}
+            texture={spines.coloredBinders[index]}
+            width={0.105}
+          />
         ))}
       </group>
-      {[0.66, 0.9].map((x, index) => (
-        <group key={x} position={[x, shelfY + 0.42, -1.46]}>
-          <RoundedBox
-            args={[0.2, 0.84, 0.3]}
-            radius={0.03}
-            smoothness={6}
-            castShadow
-          >
-            <meshPhysicalMaterial
-              color={index === 0 ? "#b6d63a" : "#c5e045"}
-              roughness={0.7}
-            />
-          </RoundedBox>
-          <RoundedBox
-            args={[0.09, 0.2, 0.018]}
-            position={[0, 0.08, 0.158]}
-            radius={0.012}
-            smoothness={4}
-          >
-            <meshPhysicalMaterial color="#f4efe4" roughness={0.74} />
-          </RoundedBox>
-        </group>
-      ))}
-      <group position={[1.58, shelfY + 0.2, -1.5]}>
-        <RoundedBox
-          args={[0.78, 0.4, 0.04]}
-          position={[0, 0.12, -0.15]}
-          radius={0.02}
-          smoothness={5}
-        >
-          <meshPhysicalMaterial color="#4f8cbc" roughness={0.7} />
-        </RoundedBox>
-        {[-0.37, 0.37].map((x) => (
-          <RoundedBox
-            key={x}
-            args={[0.04, 0.4, 0.32]}
-            position={[x, 0.12, 0]}
-            radius={0.016}
-            smoothness={5}
-          >
-            <meshPhysicalMaterial color="#4f8cbc" roughness={0.7} />
-          </RoundedBox>
-        ))}
-      </group>
-      {[1.32, 1.48, 1.64, 1.8].map((x, index) => (
-        <group key={x} position={[x, shelfY + 0.38, -1.46]}>
-          <RoundedBox
-            args={[0.085, 0.76, 0.28]}
-            radius={0.016}
-            smoothness={5}
-            castShadow
-          >
-            <meshPhysicalMaterial
-              color={["#d9b8e4", "#f0d36a", "#f3b7c8", "#9ec8e3"][index]}
-              roughness={0.74}
-            />
-          </RoundedBox>
-          <mesh position={[0, 0, 0.148]}>
-            <planeGeometry args={[0.07, 0.72]} />
-            <meshBasicMaterial
-              color={spines.pastels[index] ? "#ffffff" : "#d9b8e4"}
-              map={spines.pastels[index] ?? undefined}
-              toneMapped={false}
-            />
-          </mesh>
-        </group>
-      ))}
       {hovered && (
         <Html
           center
@@ -2274,6 +2400,35 @@ function RetroTopShelfItems({
           </div>
         </Html>
       )}
+    </group>
+  );
+}
+
+function LegacyBriefcaseVisual() {
+  return (
+    <group position={[2.68, -0.5, 0]} scale={1.2}>
+      <RoundedBox
+        args={[0.18, 0.68, 1.05]}
+        position={[0, -0.75, 0]}
+        radius={0.095}
+        smoothness={8}
+        castShadow
+      >
+        <meshPhysicalMaterial color="#27292a" roughness={0.73} />
+      </RoundedBox>
+      <RoundedBox
+        args={[0.05, 0.42, 0.08]}
+        position={[0, -0.23, 0]}
+        radius={0.025}
+        smoothness={6}
+        castShadow
+      >
+        <meshPhysicalMaterial color="#252728" roughness={0.68} />
+      </RoundedBox>
+      <mesh position={[0.15, -0.68, 0]} scale={[0.035, 0.07, 0.07]}>
+        <sphereGeometry args={[1, 12, 8]} />
+        <meshPhysicalMaterial color="#bd527c" roughness={0.63} />
+      </mesh>
     </group>
   );
 }
@@ -2330,120 +2485,10 @@ function RetroSideBriefcase({
           transparent
         />
       </mesh>
-      <mesh
-        position={[2.59, -0.4, 0]}
-        rotation={[0, 0, Math.PI / 2]}
-        castShadow
-      >
-        <cylinderGeometry args={[0.11, 0.11, 0.12, 16]} />
-        <meshPhysicalMaterial
-          color="#c59357"
-          metalness={0.06}
-          roughness={0.62}
-        />
-      </mesh>
-      <mesh
-        position={[2.67, -0.5, 0]}
-        rotation={[0, Math.PI / 2, Math.PI]}
-      >
-        <torusGeometry args={[0.13, 0.025, 8, 20, Math.PI * 1.35]} />
-        <meshPhysicalMaterial
-          color="#8f603d"
-          metalness={0.08}
-          roughness={0.58}
-        />
-      </mesh>
-      <group position={[2.68, -0.5, 0]} scale={1.2}>
-        {[-0.1, 0.1].map((offset) => (
-          <RoundedBox
-            key={offset}
-            args={[0.045, 0.37, 0.045]}
-            position={[0.01, -0.2, offset]}
-            rotation={[0, 0, offset * 0.5]}
-            radius={0.014}
-            smoothness={5}
-          >
-            <meshPhysicalMaterial color="#3b3937" roughness={0.72} />
-          </RoundedBox>
-        ))}
-        <mesh
-          position={[0.02, -0.38, 0]}
-          rotation={[0, Math.PI / 2, 0]}
-        >
-          <torusGeometry args={[0.21, 0.038, 9, 24, Math.PI]} />
-          <meshPhysicalMaterial color="#252728" roughness={0.68} />
-        </mesh>
-        <RoundedBox
-          args={[0.18, 0.68, 1.05]}
-          position={[0, -0.75, 0]}
-          radius={0.095}
-          smoothness={10}
-          castShadow
-        >
-          <meshPhysicalMaterial
-            clearcoat={0.08}
-            clearcoatRoughness={0.7}
-            color="#27292a"
-            roughness={0.73}
-          />
-        </RoundedBox>
-        <RoundedBox
-          args={[0.04, 0.27, 0.94]}
-          position={[0.11, -0.57, 0]}
-          radius={0.055}
-          smoothness={8}
-        >
-          <meshPhysicalMaterial color="#1d1f20" roughness={0.74} />
-        </RoundedBox>
-        {[-0.12, 0.12].map((offset, index) => (
-          <mesh
-            key={offset}
-            position={[0.145, -0.68, offset]}
-            rotation={[index === 0 ? -0.42 : 0.42, 0, 0]}
-            scale={[0.03, 0.09, 0.15]}
-          >
-            <sphereGeometry args={[1, 14, 10]} />
-            <meshPhysicalMaterial
-              clearcoat={0.1}
-              clearcoatRoughness={0.64}
-              color="#dc6f9a"
-              roughness={0.64}
-            />
-          </mesh>
-        ))}
-        <mesh position={[0.15, -0.68, 0]} scale={[0.035, 0.07, 0.07]}>
-          <sphereGeometry args={[1, 14, 10]} />
-          <meshPhysicalMaterial color="#bd527c" roughness={0.63} />
-        </mesh>
-        {[-0.29, 0, 0.29].map((z) => (
-          <group key={z}>
-            <RoundedBox
-              args={[0.025, 0.12, 0.035]}
-              position={[0.115, -0.94, z - 0.035]}
-              radius={0.009}
-              smoothness={4}
-            >
-              <meshPhysicalMaterial color="#e9e4d7" roughness={0.72} />
-            </RoundedBox>
-            <RoundedBox
-              args={[0.025, 0.12, 0.035]}
-              position={[0.115, -0.94, z + 0.035]}
-              radius={0.009}
-              smoothness={4}
-            >
-              <meshPhysicalMaterial color="#e9e4d7" roughness={0.72} />
-            </RoundedBox>
-            <RoundedBox
-              args={[0.025, 0.035, 0.1]}
-              position={[0.115, -0.89, z]}
-              radius={0.009}
-              smoothness={4}
-            >
-            <meshPhysicalMaterial color="#e9e4d7" roughness={0.72} />
-          </RoundedBox>
-          </group>
-        ))}
-      </group>
+      <StudyModelSlot
+        config={studyModelConfigs.briefcase}
+        fallback={<LegacyBriefcaseVisual />}
+      />
       {hovered && (
         <Html
           center
@@ -2734,8 +2779,16 @@ function RetroDesk({
   onInspectResearch: () => void;
   onOpenResearch: () => void;
 }) {
+  const [deskModelLoaded, setDeskModelLoaded] = useState(false);
+
   return (
     <group position={[-0.965, 0.84, -1.94]}>
+      <StudyModelSlot
+        config={studyModelConfigs.desk}
+        fallback={null}
+        onLoaded={() => setDeskModelLoaded(true)}
+      />
+      <group visible={!deskModelLoaded}>
       <RoundedBox
         args={[5.25, 0.24, 3.5]}
         radius={0.08}
@@ -2914,6 +2967,27 @@ function RetroDesk({
         <sphereGeometry args={[0.075, 16, 12]} />
         <meshPhysicalMaterial color="#9f6941" roughness={0.62} />
       </mesh>
+      </group>
+      <StudyModelSlot
+        config={studyModelConfigs.pencilCase}
+        fallback={null}
+      />
+      <StudyModelSlot
+        config={studyModelConfigs.oldBook}
+        fallback={null}
+      />
+      <StudyModelSlot
+        config={studyModelConfigs.dessert}
+        fallback={null}
+      />
+      <StudyModelSlot
+        config={studyModelConfigs.pen}
+        fallback={null}
+      />
+      <StudyModelSlot
+        config={studyModelConfigs.pencilBox}
+        fallback={null}
+      />
       <RetroTopShelfItems
         focused={teachingFocused}
         onInspect={onInspectTeaching}
@@ -3112,6 +3186,7 @@ function RetroLaptop({
   const screenTexture = useLaptopScreenTexture();
   const [hovered, setHovered] = useState(false);
   const [projectButtonHovered, setProjectButtonHovered] = useState(false);
+  const [laptopModelLoaded, setLaptopModelLoaded] = useState(false);
   const keyboardRows = [
     { count: 13, z: -0.17, offset: 0 },
     { count: 12, z: -0.07, offset: 0.035 },
@@ -3169,6 +3244,11 @@ function RetroLaptop({
         setProjectButtonHovered(false);
       }}
     >
+      <StudyModelSlot
+        config={studyModelConfigs.laptop}
+        fallback={null}
+        onLoaded={() => setLaptopModelLoaded(true)}
+      />
       <mesh position={[0, 0.18, 0.02]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[2.35, 1.85]} />
         <meshBasicMaterial
@@ -3178,113 +3258,117 @@ function RetroLaptop({
           transparent
         />
       </mesh>
-      <RoundedBox
-        args={[1.45, 0.09, 0.95]}
-        position={[0, 0.045, 0]}
-        radius={0.055}
-        smoothness={8}
-        castShadow
-      >
-        <meshPhysicalMaterial
-          clearcoat={0.2}
-          clearcoatRoughness={0.5}
-          color={focused ? "#ddd9df" : "#cfd1d2"}
-          metalness={0.08}
-          roughness={0.48}
-        />
-      </RoundedBox>
-      {keyboardRows.map(({ count, z, offset }, rowIndex) =>
-        Array.from({ length: count }, (_, keyIndex) => {
-          const x = (keyIndex - (count - 1) / 2) * 0.092 + offset;
-          const accent =
-            (rowIndex === 1 && keyIndex === 1) ||
-            (rowIndex === 2 && keyIndex === count - 2);
-          return (
-            <RoundedBox
-              key={`laptop-key-${rowIndex}-${keyIndex}`}
-              args={[0.078, 0.018, 0.067]}
-              position={[x, 0.107, z]}
-              radius={0.009}
-              smoothness={4}
-            >
-              <meshPhysicalMaterial
-                color={accent ? "#e9a8bd" : "#f3f0e9"}
-                roughness={0.66}
-              />
-            </RoundedBox>
-          );
-        }),
-      )}
-      <RoundedBox
-        args={[0.5, 0.018, 0.065]}
-        position={[0, 0.107, 0.225]}
-        radius={0.012}
-        smoothness={5}
-      >
-        <meshPhysicalMaterial color="#f3f0e9" roughness={0.66} />
-      </RoundedBox>
-      <RoundedBox
-        args={[0.46, 0.012, 0.2]}
-        position={[0, 0.108, 0.355]}
-        radius={0.025}
-        smoothness={6}
-      >
-        <meshPhysicalMaterial color="#b8bbbc" roughness={0.62} />
-      </RoundedBox>
-      <RoundedBox
-        args={[0.19, 0.012, 0.1]}
-        position={[-0.5, 0.108, 0.335]}
-        rotation={[0, 0.08, 0]}
-        radius={0.025}
-        smoothness={6}
-      >
-        <meshPhysicalMaterial color="#e4a6bd" roughness={0.64} />
-      </RoundedBox>
-      <mesh
-        position={[0.49, 0.111, 0.34]}
-        rotation={[-Math.PI / 2, 0, 0]}
-      >
-        <circleGeometry args={[0.085, 18]} />
-        <meshPhysicalMaterial color="#a9ca69" roughness={0.64} />
-      </mesh>
-      <mesh
-        position={[-0.52, 0.112, 0.22]}
-        rotation={[-Math.PI / 2, 0, 0]}
-      >
-        <circleGeometry args={[0.045, 16]} />
-        <meshPhysicalMaterial color="#e7c34f" roughness={0.64} />
-      </mesh>
-      <mesh position={[0, 0.1, -0.43]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.045, 0.045, 1.2, 16]} />
-        <meshPhysicalMaterial color="#9da0a1" roughness={0.54} />
-      </mesh>
-      <group
-        position={[0, 0.09, -0.43]}
-        rotation={[-LAPTOP_LID_TILT, 0, 0]}
-      >
+      <group visible={!laptopModelLoaded}>
         <RoundedBox
-          args={[1.4, 0.9, 0.065]}
-          position={[0, 0.45, 0]}
-          radius={0.065}
+          args={[1.45, 0.09, 0.95]}
+          position={[0, 0.045, 0]}
+          radius={0.055}
           smoothness={8}
           castShadow
         >
           <meshPhysicalMaterial
             clearcoat={0.2}
             clearcoatRoughness={0.5}
-            color="#cfd1d2"
+            color={focused ? "#ddd9df" : "#cfd1d2"}
             metalness={0.08}
             roughness={0.48}
           />
         </RoundedBox>
+        {keyboardRows.map(({ count, z, offset }, rowIndex) =>
+          Array.from({ length: count }, (_, keyIndex) => {
+            const x = (keyIndex - (count - 1) / 2) * 0.092 + offset;
+            const accent =
+              (rowIndex === 1 && keyIndex === 1) ||
+              (rowIndex === 2 && keyIndex === count - 2);
+            return (
+              <RoundedBox
+                key={`laptop-key-${rowIndex}-${keyIndex}`}
+                args={[0.078, 0.018, 0.067]}
+                position={[x, 0.107, z]}
+                radius={0.009}
+                smoothness={4}
+              >
+                <meshPhysicalMaterial
+                  color={accent ? "#e9a8bd" : "#f3f0e9"}
+                  roughness={0.66}
+                />
+              </RoundedBox>
+            );
+          }),
+        )}
         <RoundedBox
-          args={[1.25, 0.74, 0.024]}
-          position={[0, 0.48, 0.043]}
-          radius={0.045}
-          smoothness={7}
+          args={[0.5, 0.018, 0.065]}
+          position={[0, 0.107, 0.225]}
+          radius={0.012}
+          smoothness={5}
         >
-          <meshPhysicalMaterial color="#17191f" roughness={0.5} />
+          <meshPhysicalMaterial color="#f3f0e9" roughness={0.66} />
         </RoundedBox>
+        <RoundedBox
+          args={[0.46, 0.012, 0.2]}
+          position={[0, 0.108, 0.355]}
+          radius={0.025}
+          smoothness={6}
+        >
+          <meshPhysicalMaterial color="#b8bbbc" roughness={0.62} />
+        </RoundedBox>
+        <RoundedBox
+          args={[0.19, 0.012, 0.1]}
+          position={[-0.5, 0.108, 0.335]}
+          rotation={[0, 0.08, 0]}
+          radius={0.025}
+          smoothness={6}
+        >
+          <meshPhysicalMaterial color="#e4a6bd" roughness={0.64} />
+        </RoundedBox>
+        <mesh
+          position={[0.49, 0.111, 0.34]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <circleGeometry args={[0.085, 18]} />
+          <meshPhysicalMaterial color="#a9ca69" roughness={0.64} />
+        </mesh>
+        <mesh
+          position={[-0.52, 0.112, 0.22]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <circleGeometry args={[0.045, 16]} />
+          <meshPhysicalMaterial color="#e7c34f" roughness={0.64} />
+        </mesh>
+        <mesh position={[0, 0.1, -0.43]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.045, 0.045, 1.2, 16]} />
+          <meshPhysicalMaterial color="#9da0a1" roughness={0.54} />
+        </mesh>
+      </group>
+      <group
+        position={[0, 0.09, -0.43]}
+        rotation={[-LAPTOP_LID_TILT, 0, 0]}
+      >
+        <group visible={!laptopModelLoaded}>
+          <RoundedBox
+            args={[1.4, 0.9, 0.065]}
+            position={[0, 0.45, 0]}
+            radius={0.065}
+            smoothness={8}
+            castShadow
+          >
+            <meshPhysicalMaterial
+              clearcoat={0.2}
+              clearcoatRoughness={0.5}
+              color="#cfd1d2"
+              metalness={0.08}
+              roughness={0.48}
+            />
+          </RoundedBox>
+          <RoundedBox
+            args={[1.25, 0.74, 0.024]}
+            position={[0, 0.48, 0.043]}
+            radius={0.045}
+            smoothness={7}
+          >
+            <meshPhysicalMaterial color="#17191f" roughness={0.5} />
+          </RoundedBox>
+        </group>
         <mesh position={[0, 0.5, 0.02]} onClick={handleLaptopClick}>
           <planeGeometry args={[2.7, 1.95]} />
           <meshBasicMaterial
@@ -3310,7 +3394,7 @@ function RetroLaptop({
             toneMapped={false}
           />
         </mesh>
-        <mesh position={[0, 0.835, 0.058]}>
+        <mesh visible={!laptopModelLoaded} position={[0, 0.835, 0.058]}>
           <sphereGeometry args={[0.022, 12, 10]} />
           <meshStandardMaterial color="#62686b" roughness={0.56} />
         </mesh>
@@ -3331,7 +3415,7 @@ function RetroLaptop({
   );
 }
 
-function RetroChair() {
+function LegacyChairVisual() {
   const chairScale = 1.35;
   const floorTop = -2.08;
   const floorScaleOffset = floorTop * (1 - chairScale);
@@ -3424,44 +3508,22 @@ function RetroChair() {
   );
 }
 
+function RetroChair() {
+  return (
+    <StudyModelSlot
+      config={studyModelConfigs.chair}
+      fallback={<LegacyChairVisual />}
+    />
+  );
+}
+
 function WindowAndCurtains() {
   return (
-    <group position={[2.4, 1.55, -3.72]}>
-      <RoundedBox args={[3.15, 2.45, 0.18]} radius={0.16}>
-        <meshStandardMaterial color={palette.cream} roughness={0.7} />
-      </RoundedBox>
-      <mesh position={[0, 0, 0.11]}>
-        <planeGeometry args={[2.76, 2.08]} />
-        <meshBasicMaterial color="#c9edf0" />
-      </mesh>
-      <mesh position={[0, 0, 0.14]}>
-        <boxGeometry args={[0.1, 2.1, 0.08]} />
-        <meshStandardMaterial color={palette.cream} />
-      </mesh>
-      <mesh position={[0, 0, 0.14]}>
-        <boxGeometry args={[2.78, 0.1, 0.08]} />
-        <meshStandardMaterial color={palette.cream} />
-      </mesh>
-      <mesh position={[0, 0.95, 0.28]} rotation={[0, 0, Math.PI / 2]}>
-        <cylinderGeometry args={[0.055, 0.055, 3.55, 16]} />
-        <meshStandardMaterial color={palette.cream} />
-      </mesh>
-      <mesh position={[-1.17, 0.05, 0.25]} rotation={[0, 0, -0.07]}>
-        <coneGeometry args={[0.72, 2.25, 20]} />
-        <meshStandardMaterial color={palette.blue} roughness={0.8} />
-      </mesh>
-      <mesh position={[1.17, 0.05, 0.25]} rotation={[0, 0, 0.07]}>
-        <coneGeometry args={[0.72, 2.25, 20]} />
-        <meshStandardMaterial color={palette.blue} roughness={0.8} />
-      </mesh>
-      <mesh position={[-1.08, -0.2, 0.62]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.18, 0.07, 12, 24]} />
-        <meshStandardMaterial color={palette.coral} />
-      </mesh>
-      <mesh position={[1.08, -0.2, 0.62]} rotation={[Math.PI / 2, 0, 0]}>
-        <torusGeometry args={[0.18, 0.07, 12, 24]} />
-        <meshStandardMaterial color={palette.coral} />
-      </mesh>
+    <group position={[-3.45, 3, -0.1]} rotation={[0, Math.PI / 2, 0]}>
+      <StudyModelSlot
+        config={studyModelConfigs.curtain}
+        fallback={null}
+      />
     </group>
   );
 }
@@ -3905,6 +3967,13 @@ function StudyWorld({
   onOpenResearch: () => void;
   onInspectPhone: () => void;
 }) {
+  const [rugLoaded, setRugLoaded] = useState(false);
+  // Lift furniture only once the carpet is visible. Its fallback is the original floor.
+  const floorLift =
+    rugLoaded && studyModelConfigs.rug.enabled
+      ? studyModelConfigs.rug.targetHeight * studyModelConfigs.rug.scale[1]
+      : 0;
+
   return (
     <>
       <color attach="background" args={["#ffffff"]} />
@@ -3936,38 +4005,57 @@ function StudyWorld({
 
       <group position={[0, 0, 0]}>
         <RoomShell />
-        <RetroDesk
-          portfolioFocused={portfolioFocused}
-          teachingFocused={teachingFocused}
-          experienceFocused={experienceFocused}
-          researchFocused={researchFocused}
-          onInspectPortfolio={onInspectPortfolio}
-          onOpenPortfolio={onOpenPortfolio}
-          onInspectTeaching={onInspectTeaching}
-          onOpenTeaching={onOpenTeaching}
-          onInspectExperience={onInspectExperience}
-          onOpenExperience={onOpenExperience}
-          onInspectResearch={onInspectResearch}
-          onOpenResearch={onOpenResearch}
+        <StudyModelSlot
+          config={studyModelConfigs.rug}
+          fallback={null}
+          onLoaded={() => setRugLoaded(true)}
         />
-        <RetroFloorPhone
-          focused={phoneFocused}
-          onInspect={onInspectPhone}
-        />
-        <RetroPrinter />
+        <group name="rug-supported-items" position={[0, floorLift, 0]}>
+          <RetroDesk
+            portfolioFocused={portfolioFocused}
+            teachingFocused={teachingFocused}
+            experienceFocused={experienceFocused}
+            researchFocused={researchFocused}
+            onInspectPortfolio={onInspectPortfolio}
+            onOpenPortfolio={onOpenPortfolio}
+            onInspectTeaching={onInspectTeaching}
+            onOpenTeaching={onOpenTeaching}
+            onInspectExperience={onInspectExperience}
+            onOpenExperience={onOpenExperience}
+            onInspectResearch={onInspectResearch}
+            onOpenResearch={onOpenResearch}
+          />
+          <StudyModelSlot
+            config={studyModelConfigs.bookStackFloor}
+            fallback={null}
+          />
+          <RetroFloorPhone
+            focused={phoneFocused}
+            onInspect={onInspectPhone}
+          />
+          <RetroPrinter />
+          <RetroLaptop
+            focused={computerFocused}
+            onInspect={onInspectComputer}
+            onOpenProjects={onOpenProjects}
+          />
+          <RetroChair />
+          <StudyModelSlot
+            config={studyModelConfigs.chairPad}
+            fallback={null}
+          />
+          <StudyModelSlot
+            config={studyModelConfigs.schoolBag}
+            fallback={null}
+          />
+        </group>
         <RetroWallHooks
           focused={idCardFocused}
           onInspect={onInspectIdCard}
         />
-        <RetroLaptop
-          focused={computerFocused}
-          onInspect={onInspectComputer}
-          onOpenProjects={onOpenProjects}
-        />
-        <RetroChair />
+        <WindowAndCurtains />
         {SHOW_LEGACY_FURNITURE && (
           <>
-            <WindowAndCurtains />
             <Desk />
             <ChairAndTable />
             <Decor />
@@ -3982,6 +4070,7 @@ function StudyWorld({
       </group>
 
       <CameraRig
+        floorLift={floorLift}
         detailView={
           computerFocused
             ? "computer"
@@ -4084,8 +4173,8 @@ export function StudyScene() {
                 }
             : {
                 index: "DESK OBJECT · 06",
-                title: "Sketchboard",
-                detail: "Cutting mat · grid paper · stationery set",
+                title: "Book",
+                detail: "Open pages · printed study · desk reading",
                 hint: "Click again to open Portfolio",
               };
 
@@ -4105,6 +4194,10 @@ export function StudyScene() {
     updatePreference();
     media.addEventListener("change", updatePreference);
     return () => media.removeEventListener("change", updatePreference);
+  }, []);
+
+  useEffect(() => {
+    preloadStudyModel(studyModelConfigs.briefcase.src);
   }, []);
 
   useEffect(() => {

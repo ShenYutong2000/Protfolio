@@ -71,6 +71,7 @@ export const navigation = [
   { href: "/research", label: "Research" },
   { href: "/experience", label: "Experience" },
   { href: "/portfolio", label: "Portfolio" },
+  { href: "/image-to-3d", label: "Image → 3D" },
 ];
 
 export const projects = [
