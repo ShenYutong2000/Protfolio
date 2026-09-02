@@ -24,6 +24,7 @@ export type StudyModelConfig = {
   castShadow?: boolean;
   receiveShadow?: boolean;
   doubleSided?: boolean;
+  materialBrightness?: number;
 };
 
 type StudyModelProps = {
@@ -69,6 +70,8 @@ function LoadedStudyModel({ config, onLoaded }: StudyModelProps) {
     const rotation = config.rotation ?? [0, 0, 0];
     const offset = config.offset ?? [0, 0, 0];
     const anchor = config.anchor ?? "bottom";
+    const brightness = config.materialBrightness ?? 1;
+    const ownedMaterials = new Map<THREE.Material, THREE.Material>();
 
     clone.rotation.set(...rotation);
     clone.updateMatrixWorld(true);
@@ -109,23 +112,31 @@ function LoadedStudyModel({ config, onLoaded }: StudyModelProps) {
       child.castShadow = config.castShadow ?? true;
       child.receiveShadow = config.receiveShadow ?? true;
       child.frustumCulled = true;
-      if (config.doubleSided) {
+      if (config.doubleSided || brightness !== 1) {
+        const adjustMaterial = (source: THREE.Material) => {
+          const existing = ownedMaterials.get(source);
+          if (existing) return existing;
+          // GLTF scene clones share materials: keep overrides local to this model.
+          const material = source.clone();
+          if (config.doubleSided) material.side = THREE.DoubleSide;
+          if ("color" in material && material.color instanceof THREE.Color) {
+            material.color.multiplyScalar(brightness);
+          }
+          ownedMaterials.set(source, material);
+          return material;
+        };
         child.material = Array.isArray(child.material)
-          ? child.material.map((material) => {
-              material.side = THREE.DoubleSide;
-              material.needsUpdate = true;
-              return material;
-            })
-          : (() => {
-              child.material.side = THREE.DoubleSide;
-              child.material.needsUpdate = true;
-              return child.material;
-            })();
+          ? child.material.map(adjustMaterial)
+          : adjustMaterial(child.material);
       }
     });
 
-    return clone;
+    return { scene: clone, materials: [...ownedMaterials.values()] };
   }, [config, scene]);
+
+  useEffect(() => {
+    return () => model.materials.forEach((material) => material.dispose());
+  }, [model]);
 
   useEffect(() => {
     onLoaded?.();
@@ -133,7 +144,7 @@ function LoadedStudyModel({ config, onLoaded }: StudyModelProps) {
 
   return (
     <group position={config.position}>
-      <primitive object={model} dispose={null} />
+      <primitive object={model.scene} dispose={null} />
     </group>
   );
 }

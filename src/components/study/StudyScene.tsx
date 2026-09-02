@@ -14,6 +14,7 @@ import {
   Float,
   Html,
   RoundedBox,
+  useTexture,
 } from "@react-three/drei";
 import * as THREE from "three";
 import { siteProfile } from "@/data/content";
@@ -22,10 +23,10 @@ import { StudyModelSlot, preloadStudyModel } from "@/components/study/StudyModel
 import { studyModelConfigs } from "@/components/study/studyModels";
 
 const palette = {
-  shell: "#f5e5e2",
+  shell: "#c9a3b0",
   shellDark: "#82bac3",
   floorPink: "#f2c6d0",
-  wall: "#fff7ef",
+  wall: "#c9a3b0",
   cream: "#fff8e9",
   mint: "#badcca",
   blue: "#9bcfd7",
@@ -95,7 +96,7 @@ const PHONE_POSITION: Point = [3.08, FLOOR_TOP, -0.18];
 const PHONE_YAW = THREE.MathUtils.degToRad(-45);
 const RESUME_HREF = siteProfile.resumeHref;
 const ID_CARD_HOOKS_POSITION: Point = [2.75, 3.85, -3.62];
-const ID_CARD_LOCAL_POSITION = new THREE.Vector3(-0.52, -1.16, 0.22);
+const ID_CARD_LOCAL_POSITION = new THREE.Vector3(-0.45, -0.18, 0.3);
 const ID_CARD_ROLL = 0.025;
 const ID_CARD_CENTER = new THREE.Vector3();
 const idCardFaceRef: { current: THREE.Mesh | null } = { current: null };
@@ -257,11 +258,13 @@ function CameraRig({
   entering,
   detailView,
   reducedMotion,
+  floorLift,
 }: {
   focus: Point | null;
   entering: boolean;
   detailView: DetailView;
   reducedMotion: boolean;
+  floorLift: number;
 }) {
   useFrame((state, delta) => {
     const pointerX = state.pointer.x * 0.08;
@@ -277,7 +280,7 @@ function CameraRig({
     const target = face
       ? face.center
       : focus
-        ? new THREE.Vector3(...focus)
+        ? new THREE.Vector3(focus[0], focus[1] + floorLift, focus[2])
         : overviewTarget;
     const faceDistance = detailView === "idcard" ? 4.8 : 5.2;
     const destination =
@@ -411,6 +414,27 @@ function CameraRig({
 }
 
 function RoomShell() {
+  const wallpaper = useTexture("/assets/study-wallpaper.jpg");
+  const floor = useTexture("/assets/study-floor.png");
+  const wallpaperTexture = useMemo(() => {
+    const texture = wallpaper.clone();
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1.78 / 4.5, 1 / 4.5);
+    texture.needsUpdate = true;
+    return texture;
+  }, [wallpaper]);
+  const floorTexture = useMemo(() => {
+    const texture = floor.clone();
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(1.83, 1);
+    texture.needsUpdate = true;
+    return texture;
+  }, [floor]);
+
   const leftWallShape = useMemo(() => {
     const wallBack = ROOM_CENTER_Z - ROOM_SIZE / 2 + 0.18;
     const wallFront = ROOM_CENTER_Z + ROOM_SIZE / 2 - 0.1;
@@ -473,7 +497,8 @@ function RoomShell() {
         smoothness={8}
       >
         <meshStandardMaterial
-          color={palette.floorPink}
+          map={floorTexture}
+          color="#e8d2bb"
           metalness={0}
           roughness={0.84}
         />
@@ -490,7 +515,8 @@ function RoomShell() {
         receiveShadow
       >
         <meshStandardMaterial
-          color={palette.wall}
+          map={wallpaperTexture}
+          color="#ffffff"
           metalness={0}
           roughness={0.9}
         />
@@ -515,7 +541,8 @@ function RoomShell() {
           ]}
         />
         <meshStandardMaterial
-          color={palette.shell}
+          map={wallpaperTexture}
+          color="#ffffff"
           roughness={0.88}
           side={THREE.DoubleSide}
         />
@@ -570,6 +597,10 @@ function RetroFloorPhone({
       }}
       onPointerLeave={() => setHovered(false)}
     >
+      <StudyModelSlot
+        config={studyModelConfigs.phone}
+        fallback={null}
+      />
       <mesh position={[0, 0.22, 0]} rotation={[-0.85, 0, 0]}>
         <planeGeometry args={[0.95, 1.15]} />
         <meshBasicMaterial
@@ -579,6 +610,7 @@ function RetroFloorPhone({
           transparent
         />
       </mesh>
+      <group visible={false}>
       <RoundedBox
         args={[0.34, 0.1, 0.72]}
         position={[0, 0.05, 0]}
@@ -708,6 +740,7 @@ function RetroFloorPhone({
       >
         <meshPhysicalMaterial color="#c6699d" roughness={0.66} />
       </RoundedBox>
+      </group>
       {hovered && !focused && (
         <Html
           center
@@ -833,6 +866,10 @@ function RetroPrinter() {
       }}
       onPointerLeave={() => setHovered(false)}
     >
+      <StudyModelSlot
+        config={studyModelConfigs.printer}
+        fallback={null}
+      />
       <mesh position={[0, 0.72, 0.28]} rotation={[-0.28, 0, 0]}>
         <planeGeometry args={[1.55, 1.85]} />
         <meshBasicMaterial
@@ -842,6 +879,7 @@ function RetroPrinter() {
           transparent
         />
       </mesh>
+      <group visible={false}>
       {[
         [-0.53, -0.28],
         [-0.53, 0.28],
@@ -988,6 +1026,7 @@ function RetroPrinter() {
           roughness={0.58}
         />
       </mesh>
+      </group>
       {hovered && (
         <Html
           center
@@ -1284,6 +1323,27 @@ function RetroStudentId({
       }}
       onPointerLeave={() => setHovered(false)}
     >
+      <StudyModelSlot
+        config={studyModelConfigs.idBag}
+        fallback={null}
+      />
+      <mesh
+        position={[
+          ID_CARD_LOCAL_POSITION.x,
+          ID_CARD_LOCAL_POSITION.y,
+          ID_CARD_LOCAL_POSITION.z,
+        ]}
+        rotation={[0, 0, ID_CARD_ROLL]}
+      >
+        <planeGeometry args={[1.35, 1.05]} />
+        <meshBasicMaterial
+          depthWrite={false}
+          opacity={0}
+          side={THREE.DoubleSide}
+          transparent
+        />
+      </mesh>
+      <group visible={false}>
       <RoundedBox
         args={[0.045, 0.64, 0.045]}
         position={[-0.7, -0.43, 0.17]}
@@ -1415,6 +1475,7 @@ function RetroStudentId({
           </div>
         </Html>
       )}
+      </group>
     </group>
   );
 }
@@ -1437,6 +1498,10 @@ function RetroWallHooks({
     <group position={ID_CARD_HOOKS_POSITION}>
       <StudyModelSlot
         config={studyModelConfigs.clothHandler}
+        fallback={null}
+      />
+      <StudyModelSlot
+        config={studyModelConfigs.umbrella}
         fallback={null}
       />
       {SHOW_LEGACY_WALL_HANGER && (
@@ -2912,6 +2977,10 @@ function RetroDesk({
         fallback={null}
       />
       <StudyModelSlot
+        config={studyModelConfigs.dessert}
+        fallback={null}
+      />
+      <StudyModelSlot
         config={studyModelConfigs.pen}
         fallback={null}
       />
@@ -3898,6 +3967,13 @@ function StudyWorld({
   onOpenResearch: () => void;
   onInspectPhone: () => void;
 }) {
+  const [rugLoaded, setRugLoaded] = useState(false);
+  // Lift furniture only once the carpet is visible. Its fallback is the original floor.
+  const floorLift =
+    rugLoaded && studyModelConfigs.rug.enabled
+      ? studyModelConfigs.rug.targetHeight * studyModelConfigs.rug.scale[1]
+      : 0;
+
   return (
     <>
       <color attach="background" args={["#ffffff"]} />
@@ -3929,35 +4005,54 @@ function StudyWorld({
 
       <group position={[0, 0, 0]}>
         <RoomShell />
-        <RetroDesk
-          portfolioFocused={portfolioFocused}
-          teachingFocused={teachingFocused}
-          experienceFocused={experienceFocused}
-          researchFocused={researchFocused}
-          onInspectPortfolio={onInspectPortfolio}
-          onOpenPortfolio={onOpenPortfolio}
-          onInspectTeaching={onInspectTeaching}
-          onOpenTeaching={onOpenTeaching}
-          onInspectExperience={onInspectExperience}
-          onOpenExperience={onOpenExperience}
-          onInspectResearch={onInspectResearch}
-          onOpenResearch={onOpenResearch}
+        <StudyModelSlot
+          config={studyModelConfigs.rug}
+          fallback={null}
+          onLoaded={() => setRugLoaded(true)}
         />
-        <RetroFloorPhone
-          focused={phoneFocused}
-          onInspect={onInspectPhone}
-        />
-        <RetroPrinter />
+        <group name="rug-supported-items" position={[0, floorLift, 0]}>
+          <RetroDesk
+            portfolioFocused={portfolioFocused}
+            teachingFocused={teachingFocused}
+            experienceFocused={experienceFocused}
+            researchFocused={researchFocused}
+            onInspectPortfolio={onInspectPortfolio}
+            onOpenPortfolio={onOpenPortfolio}
+            onInspectTeaching={onInspectTeaching}
+            onOpenTeaching={onOpenTeaching}
+            onInspectExperience={onInspectExperience}
+            onOpenExperience={onOpenExperience}
+            onInspectResearch={onInspectResearch}
+            onOpenResearch={onOpenResearch}
+          />
+          <StudyModelSlot
+            config={studyModelConfigs.bookStackFloor}
+            fallback={null}
+          />
+          <RetroFloorPhone
+            focused={phoneFocused}
+            onInspect={onInspectPhone}
+          />
+          <RetroPrinter />
+          <RetroLaptop
+            focused={computerFocused}
+            onInspect={onInspectComputer}
+            onOpenProjects={onOpenProjects}
+          />
+          <RetroChair />
+          <StudyModelSlot
+            config={studyModelConfigs.chairPad}
+            fallback={null}
+          />
+          <StudyModelSlot
+            config={studyModelConfigs.schoolBag}
+            fallback={null}
+          />
+        </group>
         <RetroWallHooks
           focused={idCardFocused}
           onInspect={onInspectIdCard}
         />
-        <RetroLaptop
-          focused={computerFocused}
-          onInspect={onInspectComputer}
-          onOpenProjects={onOpenProjects}
-        />
-        <RetroChair />
         <WindowAndCurtains />
         {SHOW_LEGACY_FURNITURE && (
           <>
@@ -3975,6 +4070,7 @@ function StudyWorld({
       </group>
 
       <CameraRig
+        floorLift={floorLift}
         detailView={
           computerFocused
             ? "computer"
