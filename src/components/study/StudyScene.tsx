@@ -7,17 +7,19 @@ import {
   useRef,
   useState,
   Suspense,
+  type MutableRefObject,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
+import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
-  AdaptiveDpr,
   Html,
+  OrbitControls,
   RoundedBox,
   useTexture,
 } from "@react-three/drei";
 import * as THREE from "three";
-import { siteProfile } from "@/data/content";
+import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { education, siteProfile } from "@/data/content";
 import { PhoneGuestbook } from "@/components/study/PhoneGuestbook";
 import { StudyModelSlot, StudyAssetBoundary } from "@/components/study/StudyModel";
 import { studyModelConfigs } from "@/components/study/studyModels";
@@ -78,9 +80,7 @@ const LAPTOP_FOCUS_POINT: Point = [
   LAPTOP_SCREEN_CENTER.z,
 ];
 const PORTFOLIO_FOCUS_POINT: Point = [0.055, 1.01, -1.42];
-const TEACHING_FOCUS_POINT: Point = [-1.05, 3.58, -3.38];
 const EXPERIENCE_FOCUS_POINT: Point = [1.72, -0.42, -1.94];
-const RESEARCH_FOCUS_POINT: Point = [0.76, -0.48, 0.06];
 const PHONE_POSITION: Point = [3.08, FLOOR_TOP, -0.18];
 const PHONE_YAW = THREE.MathUtils.degToRad(-45);
 const RESUME_HREF = siteProfile.resumeHref;
@@ -114,20 +114,20 @@ function getIdCardAlignment() {
 }
 
 getIdCardAlignment();
-const ID_CARD_FOCUS_POINT: Point = [
-  ID_CARD_CENTER.x,
-  ID_CARD_CENTER.y,
-  ID_CARD_CENTER.z,
-];
-
 type DetailView =
   | "computer"
   | "portfolio"
-  | "idcard"
-  | "teaching"
-  | "experience"
-  | "research"
   | null;
+
+const OVERVIEW_TARGET = new THREE.Vector3(0, 1.68, -0.1);
+const DRAG_CLICK_THRESHOLD = 6;
+const PAGE_FLIP_MS = 780;
+
+type OverviewViewApi = {
+  capture: () => void;
+  restore: () => void;
+  reset: () => void;
+};
 const LAPTOP_SCREEN = { width: 768, height: 480 };
 const LAPTOP_POPUP = {
   x: 91.5,
@@ -169,23 +169,22 @@ function CameraRig({
   floorLift: number;
   preparing: boolean;
 }) {
+  const invalidate = useThree((state) => state.invalidate);
   useFrame((state, delta) => {
-    const pointerX = state.pointer.x * 0.08;
-    const pointerY = state.pointer.y * 0.06;
-    const overviewTarget = new THREE.Vector3(0, 1.68, -0.1);
+    // OrbitControls owns the overview camera. This rig only owns a deliberate
+    // focus/route transition so the two systems never fight over the camera.
+    if (!focus && !detailView) return;
     const cameraOffset = focus ? 8.5 : 11;
     const face =
       detailView === "computer"
         ? getLaptopScreenAlignment()
-        : detailView === "idcard"
-          ? getIdCardAlignment()
-          : null;
+        : null;
     const target = face
       ? face.center
       : focus
         ? new THREE.Vector3(focus[0], focus[1] + floorLift, focus[2])
-        : overviewTarget;
-    const faceDistance = detailView === "idcard" ? 4.8 : 5.2;
+        : OVERVIEW_TARGET;
+    const faceDistance = 5.2;
     const destination =
       face
         ? new THREE.Vector3(
@@ -199,24 +198,6 @@ function CameraRig({
               target.y + 4.85,
               target.z + 2.35,
             )
-          : detailView === "teaching"
-            ? new THREE.Vector3(
-                target.x + 0.08,
-                target.y + 0.48,
-                target.z + 3.55,
-              )
-            : detailView === "experience"
-              ? new THREE.Vector3(
-                  target.x + 3.85,
-                  target.y + 0.22,
-                  target.z + 1.08,
-                )
-              : detailView === "research"
-                ? new THREE.Vector3(
-                    target.x + 2.28,
-                    target.y + 3.68,
-                    target.z + 1.92,
-                  )
           : focus
             ? new THREE.Vector3(
                 target.x + cameraOffset,
@@ -224,8 +205,8 @@ function CameraRig({
                 target.z + cameraOffset,
               )
             : new THREE.Vector3(
-                target.x + cameraOffset + pointerX,
-                target.y + cameraOffset + pointerY,
+                target.x + cameraOffset,
+                target.y + cameraOffset,
                 target.z + cameraOffset,
               );
 
@@ -253,7 +234,7 @@ function CameraRig({
       );
     }
 
-    const lockViewUp = detailView === "computer" || detailView === "idcard";
+    const lockViewUp = detailView === "computer";
     const desiredUp =
       lockViewUp && face ? face.up : new THREE.Vector3(0, 1, 0);
     if (reducedMotion || preparing || lockViewUp) {
@@ -288,15 +269,7 @@ function CameraRig({
       const focusZoom =
         detailView === "computer"
           ? 12.8
-          : detailView === "idcard"
-            ? 18
-            : detailView === "teaching"
-              ? 7.4
-              : detailView === "experience"
-                ? 10.8
-                : detailView === "research"
-                  ? 8.9
-                  : detailView === "portfolio"
+          : detailView === "portfolio"
               ? 8.6
               : focus
                 ? 1.2
@@ -311,10 +284,97 @@ function CameraRig({
           );
       state.camera.updateProjectionMatrix();
     }
+
+    if (!reducedMotion && !preparing) {
+      const stillMoving = state.camera.position.distanceTo(destination) > 0.002;
+      if (stillMoving) invalidate();
+    }
   });
 
   return null;
 }
+
+function isIntentionalClick(event: ThreeEvent<MouseEvent>) {
+  return event.delta <= DRAG_CLICK_THRESHOLD;
+}
+
+function OverviewControls({
+  apiRef,
+  disabled,
+}: {
+  apiRef: MutableRefObject<OverviewViewApi | null>;
+  disabled: boolean;
+}) {
+  const get = useThree((state) => state.get);
+  const invalidate = useThree((state) => state.invalidate);
+  const size = useThree((state) => state.size);
+  const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const initialized = useRef(false);
+  const savedView = useRef<{ position: THREE.Vector3; target: THREE.Vector3; zoom: number } | null>(null);
+  const homeView = useRef<{ position: THREE.Vector3; target: THREE.Vector3; zoom: number } | null>(null);
+
+  useEffect(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const camera = get().camera as THREE.OrthographicCamera;
+    if (!initialized.current) {
+      camera.zoom = Math.min(size.width / 18, size.height / 17);
+      camera.updateProjectionMatrix();
+      initialized.current = true;
+    }
+    const capture = () => {
+      // Drain OrbitControls' private damping deltas before freezing the view.
+      // This prevents a latent gesture from replaying when the book closes.
+      if (controls.enableDamping) {
+        for (let index = 0; index < 60; index += 1) controls.update();
+      }
+      return { position: camera.position.clone(), target: controls.target.clone(), zoom: camera.zoom };
+    };
+    homeView.current = capture();
+    apiRef.current = {
+      capture: () => { savedView.current = capture(); },
+      restore: () => {
+        const view = savedView.current;
+        if (!view) return;
+        camera.position.copy(view.position);
+        controls.target.copy(view.target);
+        camera.zoom = view.zoom;
+        controls.update();
+        camera.updateProjectionMatrix();
+        invalidate();
+      },
+      reset: () => {
+        const view = homeView.current;
+        if (!view) return;
+        camera.position.copy(view.position);
+        controls.target.copy(view.target);
+        camera.zoom = view.zoom;
+        controls.update();
+        camera.updateProjectionMatrix();
+        invalidate();
+      },
+    };
+    return () => { apiRef.current = null; };
+  }, [apiRef, get, invalidate, size.height, size.width]);
+
+  return (
+    <OrbitControls
+      ref={controlsRef}
+      enabled={!disabled}
+      enableDamping
+      dampingFactor={0.08}
+      enablePan={false}
+      enableZoom={false}
+      rotateSpeed={0.6}
+      minAzimuthAngle={THREE.MathUtils.degToRad(15)}
+      maxAzimuthAngle={THREE.MathUtils.degToRad(75)}
+      minPolarAngle={THREE.MathUtils.degToRad(40)}
+      maxPolarAngle={THREE.MathUtils.degToRad(70)}
+      target={OVERVIEW_TARGET.toArray()}
+    />
+  );
+}
+
 
 function RoomShell() {
   const store = useStudyLoading();
@@ -479,6 +539,7 @@ function RetroFloorPhone({
 
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
+    if (!isIntentionalClick(event)) return;
     if (!focused) onInspect();
   }
 
@@ -546,6 +607,7 @@ function RetroPrinter() {
 
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
+    if (!isIntentionalClick(event)) return;
     if (printing) return;
     setPrinting(true);
     downloadResume();
@@ -594,6 +656,9 @@ function RetroPrinter() {
   );
 }
 
+// Kept below for visual regression reference; the wall now mounts the model
+// directly without this interaction wrapper.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function RetroStudentId({
   focused,
   onInspect,
@@ -612,6 +677,7 @@ function RetroStudentId({
 
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
+    if (!isIntentionalClick(event)) return;
     if (!focused) onInspect();
   }
 
@@ -663,14 +729,7 @@ function RetroStudentId({
   );
 }
 
-function RetroWallHooks({
-  focused,
-  onInspect,
-}: {
-  focused: boolean;
-  onInspect: () => void;
-}) {
-
+function RetroWallHooks() {
   return (
     <group position={ID_CARD_HOOKS_POSITION}>
       <StudyModelSlot
@@ -681,9 +740,12 @@ function RetroWallHooks({
         config={studyModelConfigs.umbrella}
         fallback={null}
       />
-
-      <RetroStudentId focused={focused} onInspect={onInspect} />
-
+      {/* The ID bag remains part of the room artwork; its hit area and focus UI
+          were intentionally removed. */}
+      <StudyModelSlot
+        config={studyModelConfigs.idBag}
+        fallback={null}
+      />
     </group>
   );
 }
@@ -721,6 +783,7 @@ function RetroDesktopCraftSet({
 
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
+    if (!isIntentionalClick(event)) return;
     if (focused) {
       onOpenPortfolio();
       return;
@@ -770,47 +833,37 @@ function RetroDesktopCraftSet({
 }
 
 function RetroTopShelfItems({
-  focused,
-  onInspect,
-  onOpenTeaching,
+  onOpenTeachingBook,
 }: {
-  focused: boolean;
-  onInspect: () => void;
-  onOpenTeaching: () => void;
+  onOpenTeachingBook: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
-    document.body.style.cursor = hovered
-      ? focused
-        ? "pointer"
-        : "zoom-in"
-      : "auto";
+    document.body.style.cursor = hovered ? "pointer" : "auto";
     return () => {
       document.body.style.cursor = "auto";
     };
-  }, [focused, hovered]);
+  }, [hovered]);
 
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
-    if (focused) {
-      onOpenTeaching();
-      return;
-    }
-    onInspect();
+    if (!isIntentionalClick(event)) return;
+    onOpenTeachingBook();
   }
 
   return (
-    <group
-      onClick={handleClick}
-      onPointerEnter={(event) => {
-        event.stopPropagation();
-        setHovered(true);
-      }}
-      onPointerLeave={() => setHovered(false)}
-    >
-      <mesh position={[0, 2.86, -1.22]}>
-        <planeGeometry args={[4.45, 1.12]} />
+    <group>
+      <mesh
+        position={[-0.06, 3.35, -1.21]}
+        onClick={handleClick}
+        onPointerEnter={(event) => {
+          event.stopPropagation();
+          setHovered(true);
+        }}
+        onPointerLeave={() => setHovered(false)}
+      >
+        <planeGeometry args={[0.95, 1.16]} />
         <meshBasicMaterial
           depthWrite={false}
           opacity={0}
@@ -834,12 +887,12 @@ function RetroTopShelfItems({
       {hovered && (
         <Html
           center
-          position={[0, 3.48, -1.1]}
+          position={[-0.06, 3.48, -1.1]}
           style={{ pointerEvents: "none" }}
         >
           <div className="computer-hover-prompt">
             <span>TEACHING · SHELF</span>
-            {focused ? "Click to open Teaching" : "Click to inspect"}
+            Click to open book
           </div>
         </Html>
       )}
@@ -847,35 +900,211 @@ function RetroTopShelfItems({
   );
 }
 
+type TeachingBookDialogProps = {
+  onClose: () => void;
+  onOpenTeaching: () => void;
+  reducedMotion: boolean;
+};
+
+type TeachingBookPage =
+  | (typeof education)[number]
+  | { kind: "closing"; title: string; summary: string };
+
+function TeachingBookDialog({
+  onClose,
+  onOpenTeaching,
+  reducedMotion,
+}: TeachingBookDialogProps) {
+  const [spreadStart, setSpreadStart] = useState(0);
+  const [flipping, setFlipping] = useState(false);
+  const [flipDirection, setFlipDirection] = useState<"next" | "previous">("next");
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const bookPages: TeachingBookPage[] = [
+    ...education,
+    {
+      kind: "closing",
+      title: "Teaching, in progress.",
+      summary: "Turn the page to continue exploring the courses, studios, and questions behind this work.",
+    },
+    {
+      kind: "closing",
+      title: "Keep learning.",
+      summary: "The full teaching story is waiting in the Teaching section.",
+    },
+  ];
+  const pageCount = bookPages.length;
+  const canTurn = pageCount > 2;
+  const leftPage = bookPages[spreadStart];
+  const rightPage = bookPages[spreadStart + 1];
+
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+    closeButtonRef.current?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      previousFocusRef.current?.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        turn(-2);
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        turn(2);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
+  function turn(direction: number) {
+    if (!canTurn || flipping) return;
+    const next = Math.max(0, Math.min(spreadStart + direction, Math.max(0, pageCount - 2)));
+    if (next === spreadStart) return;
+    if (reducedMotion) {
+      setSpreadStart(next);
+      return;
+    }
+    setFlipDirection(direction > 0 ? "next" : "previous");
+    setFlipping(true);
+    window.setTimeout(() => {
+      setSpreadStart(next);
+      setFlipping(false);
+    }, PAGE_FLIP_MS);
+  }
+
+  function renderPage(
+    page: TeachingBookPage | undefined,
+    side: "left" | "right",
+    pageIndex = spreadStart + (side === "left" ? 0 : 1),
+    extraClass = "",
+  ) {
+    const pageClass = `teaching-book-page teaching-book-page--${side} ${extraClass}`.trim();
+    if (!page) {
+      return (
+        <article className={`${pageClass} teaching-book-page--empty`}>
+          <span className="teaching-book-page-number">✦</span>
+          <p>More chapters soon.</p>
+          <a href="/teaching" onClick={(event) => { event.stopPropagation(); onOpenTeaching(); }}>
+            Teaching
+          </a>
+        </article>
+      );
+    }
+    if ("kind" in page) {
+      return (
+        <article className={`${pageClass} teaching-book-page--closing`}>
+          <span className="teaching-book-page-number">{String(pageIndex + 1).padStart(2, "0")}</span>
+          <p className="teaching-book-period">A note from the shelf</p>
+          <h2>{page.title}</h2>
+          <p className="teaching-book-summary">{page.summary}</p>
+          <a href="/teaching" onClick={(event) => { event.stopPropagation(); onOpenTeaching(); }}>
+            Teaching <span aria-hidden="true">↗</span>
+          </a>
+        </article>
+      );
+    }
+    return (
+      <article className={pageClass}>
+        <span className="teaching-book-page-number">{String(pageIndex + 1).padStart(2, "0")}</span>
+        <p className="teaching-book-period">{page.period}</p>
+        <h2>{page.institution}</h2>
+        <h3>{page.degree}</h3>
+        <p className="teaching-book-summary">{page.summary ?? page.details}</p>
+        <a href="/teaching" onClick={(event) => { event.stopPropagation(); onOpenTeaching(); }}>
+          Teaching <span aria-hidden="true">↗</span>
+        </a>
+      </article>
+    );
+  }
+
+  function renderFlipLeaf(direction: "next" | "previous") {
+    const isNext = direction === "next";
+    const frontPage = isNext ? rightPage : leftPage;
+    const backPage = isNext
+      ? bookPages[spreadStart + 2]
+      : bookPages[spreadStart - 1];
+    const frontSide = isNext ? "right" : "left";
+    const backSide = isNext ? "left" : "right";
+    const frontIndex = isNext ? spreadStart + 1 : spreadStart;
+    const backIndex = isNext ? spreadStart + 2 : spreadStart - 1;
+    return (
+      <div className={`teaching-book-flip-leaf teaching-book-flip-leaf--${direction}`}>
+        {renderPage(frontPage, frontSide, frontIndex, "teaching-book-flip-face teaching-book-flip-face--front")}
+        {renderPage(backPage, backSide, backIndex, "teaching-book-flip-face teaching-book-flip-face--back")}
+      </div>
+    );
+  }
+
+  return (
+    <div className="teaching-book-backdrop" role="presentation" onClick={onClose}>
+      <section
+        aria-label="Teaching education book"
+        aria-modal="true"
+        className="teaching-book-dialog"
+        role="dialog"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button ref={closeButtonRef} className="teaching-book-close" type="button" onClick={onClose} aria-label="Close book">×</button>
+        <div className={`teaching-book ${flipping ? "is-flipping" : ""} is-flipping-${flipDirection}`}>
+          <div className="teaching-book-cover" aria-hidden="true" />
+          <div className="teaching-book-spread">
+            {flipping && flipDirection === "previous"
+              ? renderFlipLeaf("previous")
+              : renderPage(leftPage, "left")}
+            <div className="teaching-book-spine" aria-hidden="true" />
+            {flipping && flipDirection === "next" && renderPage(
+              bookPages[spreadStart + 3],
+              "right",
+              spreadStart + 3,
+              "teaching-book-page--incoming",
+            )}
+            {flipping && flipDirection === "next"
+              ? renderFlipLeaf("next")
+              : renderPage(rightPage, "right")}
+          </div>
+        </div>
+        {canTurn && (
+          <nav className="teaching-book-controls" aria-label="Book pages">
+            <button type="button" onClick={() => turn(-2)} disabled={flipping || spreadStart === 0}>← Previous</button>
+            <span>{Math.floor(spreadStart / 2) + 1} / {Math.ceil(pageCount / 2)}</span>
+            <button type="button" onClick={() => turn(2)} disabled={flipping || spreadStart + 2 >= pageCount}>Next →</button>
+          </nav>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function RetroSideBriefcase({
-  focused,
-  onInspect,
   onOpenExperience,
 }: {
-  focused: boolean;
-  onInspect: () => void;
   onOpenExperience: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
-    document.body.style.cursor = hovered
-      ? focused
-        ? "pointer"
-        : "zoom-in"
-      : "auto";
+    document.body.style.cursor = hovered ? "pointer" : "auto";
     return () => {
       document.body.style.cursor = "auto";
     };
-  }, [focused, hovered]);
+  }, [hovered]);
 
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
-    if (focused) {
-      onOpenExperience();
-      return;
-    }
-    onInspect();
+    if (!isIntentionalClick(event)) return;
+    onOpenExperience();
   }
 
   return (
@@ -911,7 +1140,7 @@ function RetroSideBriefcase({
         >
           <div className="computer-hover-prompt">
             <span>EXPERIENCE · BRIEFCASE</span>
-            {focused ? "Click to open Experience" : "Click to inspect"}
+            Click to open Experience
           </div>
         </Html>
       )}
@@ -919,6 +1148,8 @@ function RetroSideBriefcase({
   );
 }
 
+// Kept below for visual regression reference; drawer interaction is disabled.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function RetroResearchDrawers({
   focused,
   onInspect,
@@ -987,30 +1218,16 @@ function RetroResearchDrawers({
 
 function RetroDesk({
   portfolioFocused,
-  teachingFocused,
-  experienceFocused,
-  researchFocused,
   onInspectPortfolio,
   onOpenPortfolio,
-  onInspectTeaching,
-  onOpenTeaching,
-  onInspectExperience,
+  onOpenTeachingBook,
   onOpenExperience,
-  onInspectResearch,
-  onOpenResearch,
 }: {
   portfolioFocused: boolean;
-  teachingFocused: boolean;
-  experienceFocused: boolean;
-  researchFocused: boolean;
   onInspectPortfolio: () => void;
   onOpenPortfolio: () => void;
-  onInspectTeaching: () => void;
-  onOpenTeaching: () => void;
-  onInspectExperience: () => void;
+  onOpenTeachingBook: () => void;
   onOpenExperience: () => void;
-  onInspectResearch: () => void;
-  onOpenResearch: () => void;
 }) {
 
   return (
@@ -1019,7 +1236,6 @@ function RetroDesk({
         config={studyModelConfigs.desk}
         fallback={null}
       />
-      <RetroResearchDrawers focused={researchFocused} onInspect={onInspectResearch} onOpenResearch={onOpenResearch} />
 
       <StudyModelSlot
         config={studyModelConfigs.pencilCase}
@@ -1042,9 +1258,7 @@ function RetroDesk({
         fallback={null}
       />
       <RetroTopShelfItems
-        focused={teachingFocused}
-        onInspect={onInspectTeaching}
-        onOpenTeaching={onOpenTeaching}
+        onOpenTeachingBook={onOpenTeachingBook}
       />
       <RetroDesktopCraftSet
         focused={portfolioFocused}
@@ -1053,8 +1267,6 @@ function RetroDesk({
       />
       <RetroDeskLamp />
       <RetroSideBriefcase
-        focused={experienceFocused}
-        onInspect={onInspectExperience}
         onOpenExperience={onOpenExperience}
       />
     </group>
@@ -1254,6 +1466,7 @@ function RetroLaptop({
 
   function handleLaptopClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
+    if (!isIntentionalClick(event)) return;
     if (!focused) {
       onInspect();
     }
@@ -1266,6 +1479,7 @@ function RetroLaptop({
 
   function handleScreenClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
+    if (!isIntentionalClick(event)) return;
     if (!focused) {
       onInspect();
       return;
@@ -1377,47 +1591,33 @@ function StudyWorld({
   entering,
   computerFocused,
   portfolioFocused,
-  idCardFocused,
-  teachingFocused,
-  experienceFocused,
-  researchFocused,
   phoneFocused,
+  teachingBookOpen,
   reducedMotion,
   onInspectComputer,
   onOpenProjects,
   onInspectPortfolio,
   onOpenPortfolio,
-  onInspectIdCard,
-  onInspectTeaching,
-  onOpenTeaching,
-  onInspectExperience,
+  onOpenTeachingBook,
   onOpenExperience,
-  onInspectResearch,
-  onOpenResearch,
   onInspectPhone,
+  overviewViewApiRef,
 }: {
   focus: Point | null;
   entering: boolean;
   computerFocused: boolean;
   portfolioFocused: boolean;
-  idCardFocused: boolean;
-  teachingFocused: boolean;
-  experienceFocused: boolean;
-  researchFocused: boolean;
   phoneFocused: boolean;
+  teachingBookOpen: boolean;
   reducedMotion: boolean;
   onInspectComputer: () => void;
   onOpenProjects: () => void;
   onInspectPortfolio: () => void;
   onOpenPortfolio: () => void;
-  onInspectIdCard: () => void;
-  onInspectTeaching: () => void;
-  onOpenTeaching: () => void;
-  onInspectExperience: () => void;
+  onOpenTeachingBook: () => void;
   onOpenExperience: () => void;
-  onInspectResearch: () => void;
-  onOpenResearch: () => void;
   onInspectPhone: () => void;
+  overviewViewApiRef: MutableRefObject<OverviewViewApi | null>;
 }) {
   const { entries, phase } = useStudyLoadingSnapshot();
   const rugLoaded = entries[studyModelConfigs.rug.src]?.status === "ready";
@@ -1468,17 +1668,10 @@ function StudyWorld({
         <group name="rug-supported-items" position={[0, floorLift, 0]}>
           <RetroDesk
             portfolioFocused={portfolioFocused}
-            teachingFocused={teachingFocused}
-            experienceFocused={experienceFocused}
-            researchFocused={researchFocused}
             onInspectPortfolio={onInspectPortfolio}
             onOpenPortfolio={onOpenPortfolio}
-            onInspectTeaching={onInspectTeaching}
-            onOpenTeaching={onOpenTeaching}
-            onInspectExperience={onInspectExperience}
+            onOpenTeachingBook={onOpenTeachingBook}
             onOpenExperience={onOpenExperience}
-            onInspectResearch={onInspectResearch}
-            onOpenResearch={onOpenResearch}
           />
           <StudyModelSlot
             config={studyModelConfigs.bookStackFloor}
@@ -1504,10 +1697,7 @@ function StudyWorld({
             fallback={null}
           />
         </group>
-        <RetroWallHooks
-          focused={idCardFocused}
-          onInspect={onInspectIdCard}
-        />
+        <RetroWallHooks />
         <WindowAndCurtains />
 
       </group>
@@ -1518,37 +1708,24 @@ function StudyWorld({
         detailView={
           computerFocused
             ? "computer"
-            : idCardFocused
-              ? "idcard"
-              : teachingFocused
-                ? "teaching"
-                : experienceFocused
-                  ? "experience"
-                  : researchFocused
-                    ? "research"
-                    : portfolioFocused
-                      ? "portfolio"
-                      : null
+            : portfolioFocused
+              ? "portfolio"
+              : null
         }
         entering={entering}
         focus={
           computerFocused
             ? LAPTOP_FOCUS_POINT
-            : idCardFocused
-              ? ID_CARD_FOCUS_POINT
-              : teachingFocused
-                ? TEACHING_FOCUS_POINT
-                : experienceFocused
-                  ? EXPERIENCE_FOCUS_POINT
-                  : researchFocused
-                    ? RESEARCH_FOCUS_POINT
-                    : portfolioFocused
-                      ? PORTFOLIO_FOCUS_POINT
-                      : focus
+            : portfolioFocused
+              ? PORTFOLIO_FOCUS_POINT
+              : focus
         }
         reducedMotion={reducedMotion}
       />
-      <AdaptiveDpr pixelated />
+      <OverviewControls
+        apiRef={overviewViewApiRef}
+        disabled={phase !== "ready" || teachingBookOpen || Boolean(focus || entering || computerFocused || portfolioFocused || phoneFocused)}
+      />
       <StudyDiagnostics />
       <StudyScenePreparation />
     </>
@@ -1584,58 +1761,18 @@ function StudySceneContent() {
   const router = useRouter();
   const [focus, setFocus] = useState<Point | null>(null);
   const [entering, setEntering] = useState(false);
-  const [computerFocused, setComputerFocused] = useState(false);
-  const [portfolioFocused, setPortfolioFocused] = useState(false);
-  const [idCardFocused, setIdCardFocused] = useState(false);
-  const [teachingFocused, setTeachingFocused] = useState(false);
-  const [experienceFocused, setExperienceFocused] = useState(false);
-  const [researchFocused, setResearchFocused] = useState(false);
-  const [phoneFocused, setPhoneFocused] = useState(false);
+  const [activeView, setActiveView] = useState<"computer" | "portfolio" | "phone" | "teachingBook" | null>(null);
+  const overviewViewApiRef = useRef<OverviewViewApi | null>(null);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const inspecting =
-    computerFocused ||
-    portfolioFocused ||
-    idCardFocused ||
-    teachingFocused ||
-    experienceFocused ||
-    researchFocused ||
-    phoneFocused;
-  const inspectionCopy = idCardFocused
-    ? {
-        index: "WALL OBJECT · 02",
-        title: "Student ID",
-        detail: `${siteProfile.name} · ${siteProfile.role}`,
-        hint: "Press Esc to return",
-      }
-    : computerFocused
+  const inspecting = activeView !== null && activeView !== "teachingBook";
+  const inspectionCopy = activeView === "computer"
       ? {
           index: "DESK OBJECT · 01",
           title: "Study laptop",
           detail: "Silver shell · custom screen · sticker keyboard",
           hint: "Press Esc to return",
         }
-      : teachingFocused
-        ? {
-            index: "SHELF OBJECT · 03",
-            title: "Teaching",
-            detail: "Top shelf · books · folders",
-            hint: "Click again to open Teaching",
-          }
-        : researchFocused
-          ? {
-              index: "DESK OBJECT · 04",
-              title: "Research files",
-              detail: "Open drawers · folders · notes",
-              hint: "Click again to open Research",
-            }
-          : experienceFocused
-            ? {
-                index: "DESK OBJECT · 05",
-                title: "Briefcase",
-                detail: "Black case · side buckle · work bag",
-                hint: "Click again to open Experience",
-              }
-            : phoneFocused
+      : activeView === "phone"
               ? {
                   index: "FLOOR OBJECT · 08",
                   title: "Keitai phone",
@@ -1650,13 +1787,21 @@ function StudySceneContent() {
               };
 
   function clearInspect() {
-    setComputerFocused(false);
-    setPortfolioFocused(false);
-    setIdCardFocused(false);
-    setTeachingFocused(false);
-    setExperienceFocused(false);
-    setResearchFocused(false);
-    setPhoneFocused(false);
+    overviewViewApiRef.current?.restore();
+    setActiveView(null);
+  }
+
+  function inspect(view: "computer" | "portfolio" | "phone") {
+    overviewViewApiRef.current?.capture();
+    setFocus(null);
+    setActiveView(view);
+  }
+
+  function openTeachingBook() {
+    if (entering || activeView === "teachingBook") return;
+    overviewViewApiRef.current?.capture();
+    setFocus(null);
+    setActiveView("teachingBook");
   }
 
   useEffect(() => {
@@ -1700,7 +1845,7 @@ function StudySceneContent() {
         // that same effective mode so loading updates do not flip shader variants.
         shadows={{ type: THREE.PCFShadowMap }}
         dpr={[1, 1.6]}
-        frameloop={reducedMotion ? "demand" : "always"}
+        frameloop="demand"
         camera={{
           position: [11, 12.68, 10.9],
           zoom: 30,
@@ -1711,103 +1856,41 @@ function StudySceneContent() {
         fallback={<span>The interactive study requires WebGL.</span>}
       >
         <StudyWorld
-          computerFocused={computerFocused}
-          portfolioFocused={portfolioFocused}
-          idCardFocused={idCardFocused}
-          teachingFocused={teachingFocused}
-          experienceFocused={experienceFocused}
-          researchFocused={researchFocused}
-          phoneFocused={phoneFocused}
+          computerFocused={activeView === "computer"}
+          portfolioFocused={activeView === "portfolio"}
+          phoneFocused={activeView === "phone"}
+          teachingBookOpen={activeView === "teachingBook"}
           entering={entering}
           focus={focus}
-          onInspectComputer={() => {
-            setFocus(null);
-            setPortfolioFocused(false);
-            setIdCardFocused(false);
-            setTeachingFocused(false);
-            setExperienceFocused(false);
-            setResearchFocused(false);
-            setPhoneFocused(false);
-            setComputerFocused(true);
-          }}
+          onInspectComputer={() => inspect("computer")}
           onOpenProjects={() =>
             enterSection(LAPTOP_FOCUS_POINT, "/projects")
           }
-          onInspectPortfolio={() => {
-            setFocus(null);
-            setComputerFocused(false);
-            setIdCardFocused(false);
-            setTeachingFocused(false);
-            setExperienceFocused(false);
-            setResearchFocused(false);
-            setPhoneFocused(false);
-            setPortfolioFocused(true);
-          }}
+          onInspectPortfolio={() => inspect("portfolio")}
           onOpenPortfolio={() =>
             enterSection(PORTFOLIO_FOCUS_POINT, "/portfolio")
           }
-          onInspectIdCard={() => {
-            setFocus(null);
-            setComputerFocused(false);
-            setPortfolioFocused(false);
-            setTeachingFocused(false);
-            setExperienceFocused(false);
-            setResearchFocused(false);
-            setPhoneFocused(false);
-            setIdCardFocused(true);
-          }}
-          onInspectTeaching={() => {
-            setFocus(null);
-            setComputerFocused(false);
-            setPortfolioFocused(false);
-            setIdCardFocused(false);
-            setExperienceFocused(false);
-            setResearchFocused(false);
-            setPhoneFocused(false);
-            setTeachingFocused(true);
-          }}
-          onOpenTeaching={() =>
-            enterSection(TEACHING_FOCUS_POINT, "/teaching")
-          }
-          onInspectExperience={() => {
-            setFocus(null);
-            setComputerFocused(false);
-            setPortfolioFocused(false);
-            setIdCardFocused(false);
-            setTeachingFocused(false);
-            setResearchFocused(false);
-            setPhoneFocused(false);
-            setExperienceFocused(true);
-          }}
+          onOpenTeachingBook={openTeachingBook}
           onOpenExperience={() =>
             enterSection(EXPERIENCE_FOCUS_POINT, "/experience")
           }
-          onInspectResearch={() => {
-            setFocus(null);
-            setComputerFocused(false);
-            setPortfolioFocused(false);
-            setIdCardFocused(false);
-            setTeachingFocused(false);
-            setExperienceFocused(false);
-            setPhoneFocused(false);
-            setResearchFocused(true);
-          }}
-          onOpenResearch={() =>
-            enterSection(RESEARCH_FOCUS_POINT, "/research")
-          }
-          onInspectPhone={() => {
-            setFocus(null);
-            setComputerFocused(false);
-            setPortfolioFocused(false);
-            setIdCardFocused(false);
-            setTeachingFocused(false);
-            setExperienceFocused(false);
-            setResearchFocused(false);
-            setPhoneFocused(true);
-          }}
+          onInspectPhone={() => inspect("phone")}
+          overviewViewApiRef={overviewViewApiRef}
           reducedMotion={reducedMotion}
         />
       </Canvas>
+      {!inspecting && !entering && (
+        <>
+          <div className="study-drag-hint" aria-hidden="true">Drag to explore</div>
+          <button
+            className="study-view-reset"
+            type="button"
+            onClick={() => overviewViewApiRef.current?.reset()}
+          >
+            Reset view
+          </button>
+        </>
+      )}
       {inspecting && (
         <div className="computer-inspection-ui" aria-live="polite">
           <button
@@ -1818,7 +1901,7 @@ function StudySceneContent() {
             <span aria-hidden="true">←</span>
             Back to room
           </button>
-          {phoneFocused ? (
+          {activeView === "phone" ? (
             <PhoneGuestbook />
           ) : (
             <div className="computer-detail-card">
@@ -1829,6 +1912,13 @@ function StudySceneContent() {
             </div>
           )}
         </div>
+      )}
+      {activeView === "teachingBook" && (
+        <TeachingBookDialog
+          onClose={clearInspect}
+          onOpenTeaching={() => router.push("/teaching")}
+          reducedMotion={reducedMotion}
+        />
       )}
     </div>
   );
