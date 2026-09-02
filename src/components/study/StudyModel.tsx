@@ -5,10 +5,14 @@ import {
   Suspense,
   useEffect,
   useMemo,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
+import { useStudyLoading } from "./StudyLoading";
+import { assetRequestUrl } from "./studyLoadingState";
+import { studyModelLoader } from "./studyLoaders";
 
 export type StudyPoint = [number, number, number];
 
@@ -36,13 +40,14 @@ type StudyModelBoundaryProps = {
   asset: string;
   fallback: ReactNode;
   children: ReactNode;
+  onError?: () => void;
 };
 
 type StudyModelBoundaryState = {
   hasError: boolean;
 };
 
-class StudyModelBoundary extends Component<
+export class StudyAssetBoundary extends Component<
   StudyModelBoundaryProps,
   StudyModelBoundaryState
 > {
@@ -53,6 +58,7 @@ class StudyModelBoundary extends Component<
   }
 
   componentDidCatch(error: unknown) {
+    this.props.onError?.();
     if (process.env.NODE_ENV !== "production") {
       console.warn(`[StudyModel] Could not load ${this.props.asset}`, error);
     }
@@ -63,8 +69,9 @@ class StudyModelBoundary extends Component<
   }
 }
 
-function LoadedStudyModel({ config, onLoaded }: StudyModelProps) {
-  const { scene } = useGLTF(config.src);
+function LoadedStudyModel({ config, onLoaded, attempt }: StudyModelProps & { attempt: number }) {
+  const store = useStudyLoading();
+  const { scene } = useGLTF(assetRequestUrl({ src: config.src, attempt }), false, true, studyModelLoader(store).configure);
   const model = useMemo(() => {
     const clone = scene.clone(true);
     const rotation = config.rotation ?? [0, 0, 0];
@@ -142,8 +149,12 @@ function LoadedStudyModel({ config, onLoaded }: StudyModelProps) {
     onLoaded?.();
   }, [onLoaded]);
 
+  useEffect(() => {
+    store.report(config.src, attempt, "ready");
+  }, [store, config.src, attempt]);
+
   return (
-    <group position={config.position}>
+    <group name={config.src} position={config.position}>
       <primitive object={model.scene} dispose={null} />
     </group>
   );
@@ -154,21 +165,20 @@ export function StudyModelSlot({
   fallback,
   onLoaded,
 }: StudyModelProps & { fallback: ReactNode }) {
-  if (!config.enabled) return fallback;
+  const store = useStudyLoading();
+  const entry = useSyncExternalStore(store.subscribe, () => store.getSnapshot().entries[config.src], () => store.getSnapshot().entries[config.src]);
+  if (!config.enabled || !entry || entry.status === "skipped") return null;
 
   return (
-    <StudyModelBoundary
-      key={config.src}
+    <StudyAssetBoundary
+      key={`${config.src}:${entry.attempt}`}
       asset={config.src}
       fallback={fallback}
+      onError={() => store.report(config.src, entry.attempt, "error")}
     >
       <Suspense fallback={fallback}>
-        <LoadedStudyModel config={config} onLoaded={onLoaded} />
+        <LoadedStudyModel config={config} onLoaded={onLoaded} attempt={entry.attempt} />
       </Suspense>
-    </StudyModelBoundary>
+    </StudyAssetBoundary>
   );
-}
-
-export function preloadStudyModel(src: string) {
-  useGLTF.preload(src);
 }
