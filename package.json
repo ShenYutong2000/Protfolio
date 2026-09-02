@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "check:study-model": "node scripts/check-study-model.mjs",
+    "check:study-loading": "node --test scripts/check-study-loading.mjs",
     "optimize:study-model": "gltf-transform optimize --simplify-ratio 0.08 --simplify-error 0.01 --simplify-lock-border false --texture-size 512 --texture-compress webp --compress meshopt --flatten true --join true --prune true --prune-attributes true --resample true --weld true",
     "img2threejs": "node scripts/img2threejs.mjs"
   },
