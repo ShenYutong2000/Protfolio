@@ -142,6 +142,8 @@ export const education = [
     period: "2024 — Present",
     institution: "University Name",
     degree: "Degree in Your Major",
+    summary:
+      "Add a concise summary of this education, its focus, and the work it shaped.",
     details:
       "Add your concentration, key courses, academic honors, student organizations, and relevant achievements.",
   },
@@ -149,6 +151,8 @@ export const education = [
     period: "2020 — 2024",
     institution: "Previous University",
     degree: "Degree in Your Major",
+    summary:
+      "Describe the part of this education that best supports the story you want your portfolio to tell.",
     details:
       "Describe the part of this education that best supports the story you want your portfolio to tell.",
   },

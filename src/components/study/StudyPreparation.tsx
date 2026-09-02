@@ -50,7 +50,7 @@ export function StudyScenePreparation() {
     const store = useStudyLoading();
     const { run, shellReady, ...rest } = useStudyLoadingSnapshot();
     const settled = loadingSummary({ ...rest, run, shellReady }).settled;
-    const { gl, scene, camera, invalidate, setEvents } = useThree();
+    const { gl, scene, camera, invalidate, setEvents, get } = useThree();
     useEffect(() => { setEvents({ enabled: rest.phase === "ready" }); }, [setEvents, rest.phase]);
     useEffect(() => {
         const lost = () => store.fail("The graphics context was lost. Please reload or explore the pages below.", true);
@@ -63,6 +63,11 @@ export function StudyScenePreparation() {
         let cancelled = false;
         let stopAfter: (() => void) | undefined;
         let frame = 0;
+        // Asset placement is complete before compilation. Let the renderer
+        // build the static shadow map once, then reuse it while only the camera
+        // moves during overview dragging.
+        const renderer = get().gl;
+        renderer.shadowMap.autoUpdate = true;
         store.advance("preparing", run);
         // Let React commit the rug lift and the overview camera fit before compilation.
         frame = requestAnimationFrame(() => {
@@ -78,6 +83,7 @@ export function StudyScenePreparation() {
                     stopAfter?.();
                     frame = requestAnimationFrame(() => {
                         if (!cancelled) {
+                            renderer.shadowMap.autoUpdate = false;
                             performance.mark("study:first-ready-frame");
                             store.advance("ready", run);
                         }
@@ -91,6 +97,6 @@ export function StudyScenePreparation() {
         });
         invalidate();
         return () => { cancelled = true; cancelAnimationFrame(frame); stopAfter?.(); };
-    }, [store, settled, shellReady, run, gl, scene, camera, invalidate]);
+    }, [store, settled, shellReady, run, gl, scene, camera, invalidate, get]);
     return null;
 }
