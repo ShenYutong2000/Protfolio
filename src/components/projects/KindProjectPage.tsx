@@ -15,25 +15,30 @@ type SceneKind = "research" | "atlas" | "archive";
 type SceneMode = "hero" | "manifesto" | "challenge" | "approach" | "outcome";
 type Palette = (typeof palettes)[number];
 
-const ribbonColors = (palette: Palette) => [palette.green, palette.purple, palette.coral, palette.yellow];
+function ribbonPath(kind: SceneKind, mode: SceneMode, x: number, y: number, vx: number, vy: number, phase: number) {
+  const wave = Math.sin(phase) * 10;
+  const momentumX = Math.max(-1, Math.min(1, vx * 3.2));
+  const momentumY = Math.max(-1, Math.min(1, vy * 3.2));
 
-function ribbonPath(kind: SceneKind, mode: SceneMode, index: number, x: number, y: number, phase: number) {
-  const lane = index * 38;
-  const sway = x * (22 + index * 5);
-  const lift = y * (28 + index * 4);
-  const wave = Math.sin(phase + index * 1.35) * (8 + index * 2);
-
+  if (mode === "manifesto") {
+    return `M 56 ${248 + y * 86} C ${196 + x * 132 + momentumX * 38} ${86 - y * 78 + wave}, ${414 - x * 150 - momentumX * 44} ${414 + y * 78 - wave}, 602 ${248 - y * 72}`;
+  }
+  if (mode === "challenge") {
+    return `M 42 ${116 + y * 60} C ${118 + x * 120} ${410 - y * 122 + momentumY * 42}, ${408 - x * 170} ${58 + y * 126 - momentumY * 34}, 598 ${384 - y * 80}`;
+  }
+  if (mode === "approach") {
+    return `M 28 ${374 - y * 72} C ${150 + x * 152 + momentumX * 42} ${78 + y * 120}, ${298 - x * 112 - momentumX * 34} ${436 - y * 138}, 612 ${126 + y * 86}`;
+  }
+  if (mode === "outcome") {
+    return `M 24 ${254 + y * 90} C ${166 - x * 132} ${116 + momentumY * 34}, ${378 + x * 156} ${392 - momentumY * 34}, 616 ${224 - y * 78}`;
+  }
   if (kind === "atlas") {
-    const start = 66 + lane;
-    const end = 570 - lane * .6;
-    return `M ${start} ${398 - lift} C ${180 + sway} ${315 + wave}, ${300 - sway} ${180 + lift}, ${end} ${112 + lane * .35 + lift}`;
+    return `M 46 ${386 - y * 74} C ${174 + x * 142 + momentumX * 42} ${310 + wave}, ${338 - x * 142 - momentumX * 36} ${132 - wave}, 602 ${108 + y * 84}`;
   }
   if (kind === "archive") {
-    const start = 88 + lane * .6;
-    return `M ${start} ${84 + lift} C ${206 - sway} ${168 + wave}, ${410 + sway} ${328 - lift}, 570 ${398 - lane * .4}`;
+    return `M 48 ${112 + y * 72} C ${196 - x * 136} ${60 + momentumY * 38 + wave}, ${404 + x * 156} ${392 - momentumY * 38 - wave}, 600 ${378 - y * 82}`;
   }
-  const yStart = mode === "manifesto" ? 92 + lane : 116 + lane;
-  return `M 32 ${yStart + lift} C ${168 + sway} ${42 - wave}, ${358 - sway} ${452 + wave}, 608 ${yStart + 140 - lift}`;
+  return `M 28 ${132 + y * 74} C ${180 + x * 136 + momentumX * 44} ${34 - wave}, ${380 - x * 150 - momentumX * 36} ${438 + wave}, 612 ${262 - y * 82}`;
 }
 
 function sceneLabel(kind: SceneKind) {
@@ -56,9 +61,9 @@ function KindInteractiveScene({
   className?: string;
 }) {
   const sceneRef = useRef<HTMLDivElement | null>(null);
-  const pathRefs = useRef<Array<SVGPathElement | null>>([]);
+  const ribbonRef = useRef<SVGPathElement | null>(null);
   const target = useRef({ x: 0, y: 0, active: false });
-  const current = useRef({ x: 0, y: 0 });
+  const current = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
   const visible = useRef(true);
 
   useEffect(() => {
@@ -74,17 +79,19 @@ function KindInteractiveScene({
 
     const render = () => {
       if (visible.current) {
-        const ease = target.current.active ? .075 : .045;
-        current.current.x += (target.current.x - current.current.x) * ease;
-        current.current.y += (target.current.y - current.current.y) * ease;
-        phase += target.current.active ? .035 : .012;
-        const { x, y } = current.current;
+        const spring = target.current.active ? .19 : .13;
+        current.current.vx += (target.current.x - current.current.x) * spring;
+        current.current.vy += (target.current.y - current.current.y) * spring;
+        current.current.vx *= .76;
+        current.current.vy *= .76;
+        current.current.x += current.current.vx;
+        current.current.y += current.current.vy;
+        phase += target.current.active ? .028 + Math.min(.025, Math.hypot(current.current.vx, current.current.vy) * .04) : .012;
+        const { x, y, vx, vy } = current.current;
         node.style.setProperty("--scene-x", x.toFixed(4));
         node.style.setProperty("--scene-y", y.toFixed(4));
-        node.style.setProperty("--scene-tilt", `${(x * 3.5).toFixed(2)}deg`);
-        pathRefs.current.forEach((path, index) => {
-          path?.setAttribute("d", ribbonPath(kind, mode, index, x, y, phase));
-        });
+        node.style.setProperty("--scene-tilt", `${(x * 8).toFixed(2)}deg`);
+        ribbonRef.current?.setAttribute("d", ribbonPath(kind, mode, x, y, vx, vy, phase));
       }
       raf = requestAnimationFrame(render);
     };
@@ -110,7 +117,6 @@ function KindInteractiveScene({
     target.current = { x: 0, y: 0, active: false };
   };
 
-  const colors = ribbonColors(palette);
   return (
     <div
       ref={sceneRef}
@@ -123,23 +129,16 @@ function KindInteractiveScene({
     >
       <svg className="kind-scene-svg" viewBox="0 0 640 500" aria-hidden="true">
         <defs>
-          <linearGradient id={`scene-fill-${kind}`} x1="0" x2="1" y1="0" y2="1">
-            <stop offset="0" stopColor={palette.yellow} stopOpacity=".78" />
-            <stop offset="1" stopColor={palette.coral} stopOpacity=".55" />
-          </linearGradient>
           <clipPath id={`scene-clip-${kind}`}><rect x="15" y="15" width="610" height="470" rx="36" /></clipPath>
         </defs>
         <rect className="kind-scene-paper" x="15" y="15" width="610" height="470" rx="36" fill="#fffbed" />
         <g clipPath={`url(#scene-clip-${kind})`} className="kind-scene-ribbons" aria-hidden="true">
-          {colors.map((color, index) => (
-            <path
-              key={color}
-              ref={(element) => { pathRefs.current[index] = element; }}
-              d={ribbonPath(kind, mode, index, 0, 0, 0)}
-              stroke={color}
-              className={`kind-scene-ribbon kind-scene-ribbon-${index}`}
-            />
-          ))}
+          <path
+            ref={ribbonRef}
+            d={ribbonPath(kind, mode, 0, 0, 0, 0, 0)}
+            stroke={palette.green}
+            className="kind-scene-ribbon"
+          />
         </g>
         {kind === "research" && (
           <g className="kind-scene-objects kind-research-objects">
@@ -173,7 +172,6 @@ function KindInteractiveScene({
           </g>
         )}
       </svg>
-      <span className="kind-scene-hint">Move to explore</span>
     </div>
   );
 }
@@ -191,7 +189,12 @@ export function KindProjectPage({ project, nextProject }: { project: Project; ne
   const index = Math.max(0, Number(project.index) - 1);
   const palette = palettes[index % palettes.length];
   const scene: SceneKind = index === 0 ? "research" : index === 1 ? "atlas" : "archive";
-  const [motionEnabled, setMotionEnabled] = useState(true);
+  const [motionEnabled, setMotionEnabled] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const stored = window.localStorage.getItem("kind-motion-enabled");
+    if (stored !== null) return stored !== "false";
+    return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  });
   const chapters = [
     { label: "01 / Challenge", title: "Start with the question, not the interface.", body: project.challenge, mode: "challenge" as const },
     { label: "02 / Approach", title: "Make the path easier to follow.", body: project.approach, mode: "approach" as const },
@@ -199,10 +202,6 @@ export function KindProjectPage({ project, nextProject }: { project: Project; ne
   ];
 
   useEffect(() => {
-    const stored = window.localStorage.getItem("kind-motion-enabled");
-    if (stored !== null) setMotionEnabled(stored !== "false");
-    else if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) setMotionEnabled(false);
-
     const reveals = document.querySelectorAll<HTMLElement>(".kind-reveal");
     const observer = new IntersectionObserver((entries) => entries.forEach((entry) => {
       if (entry.isIntersecting) (entry.target as HTMLElement).dataset.visible = "true";

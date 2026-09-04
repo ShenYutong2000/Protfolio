@@ -3954,16 +3954,13 @@ body:has(.kind-project-page) .site-footer { display: none; }
 .kind-interactive-scene { --scene-x: 0; --scene-y: 0; --scene-tilt: 0deg; min-height: 100px; overflow: hidden; position: relative; touch-action: pan-y; }
 .kind-scene-svg { display: block; height: 100%; overflow: visible; width: 100%; }
 .kind-scene-paper { fill: color-mix(in srgb, var(--kind-green) 14%, var(--kind-paper)); stroke: color-mix(in srgb, var(--kind-ink) 12%, transparent); stroke-width: 2; }
-.kind-scene-ribbons { fill: none; opacity: .85; pointer-events: none; }
-.kind-scene-ribbon { stroke-linecap: round; stroke-width: 4; vector-effect: non-scaling-stroke; transition: opacity 180ms ease; }
-.kind-scene-ribbon-1 { stroke-width: 2.4; }
-.kind-scene-ribbon-2 { stroke-width: 3; }
-.kind-scene-ribbon-3 { stroke-width: 2; opacity: .6; }
+.kind-scene-ribbons { fill: none; opacity: .92; pointer-events: none; }
+.kind-scene-ribbon { stroke-linecap: round; stroke-width: 5; vector-effect: non-scaling-stroke; transition: stroke-width 180ms ease, opacity 180ms ease; }
+.kind-interactive-scene:hover .kind-scene-ribbon { stroke-width: 6; }
 .kind-scene-objects { transform: translate(calc(var(--scene-x) * 7px), calc(var(--scene-y) * 5px)) rotate(var(--scene-tilt)); transform-box: fill-box; transform-origin: center; transition: transform 220ms ease-out; }
 .kind-scene-orb, .kind-scene-node { transform-box: fill-box; transform-origin: center; transition: transform 320ms cubic-bezier(.2,.8,.2,1); }
 .kind-interactive-scene:hover .kind-scene-orb.orb-one, .kind-interactive-scene:hover .kind-scene-node:nth-of-type(odd) { transform: scale(1.18); }
 .kind-interactive-scene:hover .kind-scene-orb.orb-two, .kind-interactive-scene:hover .kind-scene-node:nth-of-type(even) { transform: scale(.84); }
-.kind-scene-hint { bottom: 20px; color: color-mix(in srgb, var(--kind-ink) 56%, transparent); font-size: .65rem; font-weight: 800; letter-spacing: .13em; position: absolute; right: 25px; text-transform: uppercase; }
 .kind-project-hero-scene { aspect-ratio: 1.22; min-height: 420px; opacity: 0; transform: translateY(32px) rotate(1.5deg); transition: opacity .9s .12s ease, transform .9s .12s cubic-bezier(.2,.8,.2,1); }
 .kind-project-hero-scene[data-visible="true"] { opacity: 1; transform: none; }
 
@@ -3971,7 +3968,7 @@ body:has(.kind-project-page) .site-footer { display: none; }
 .kind-project-manifesto[data-visible="true"] { opacity: 1; transform: none; }
 .kind-project-manifesto h2 { font-family: var(--font-display), Georgia, serif; font-size: clamp(3.2rem, 7.4vw, 9rem); font-weight: 520; letter-spacing: -.08em; line-height: .84; margin: 0 auto; max-width: 1200px; text-align: center; }
 .kind-project-manifesto h2 span { color: var(--kind-coral); }
-.kind-project-manifesto-scene { height: 145px; margin: 30px auto 18px; max-width: 940px; opacity: .72; }
+.kind-project-manifesto-scene { height: 145px; margin: 30px auto 18px; max-width: 940px; opacity: .78; }
 .kind-project-manifesto-scene .kind-scene-paper, .kind-project-manifesto-scene .kind-scene-objects { display: none; }
 .kind-project-manifesto > p:not(.kind-project-section-label) { color: color-mix(in srgb, var(--kind-ink) 68%, transparent); font-size: 1.05rem; line-height: 1.7; margin: 0 auto; max-width: 560px; text-align: center; }
 .kind-project-manifesto dl { display: grid; gap: 24px; grid-template-columns: repeat(3, 1fr); margin: 75px auto 0; max-width: 1000px; }
