@@ -19,11 +19,11 @@ import {
 } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { education, siteProfile } from "@/data/content";
+import { education, projects, siteProfile } from "@/data/content";
 import { PhoneGuestbook } from "@/components/study/PhoneGuestbook";
 import { preloadPortfolio } from "@/components/portfolio/preloadPortfolio";
 import { ExperienceCards } from "./ExperienceCards";
-import { ProjectFolders } from "./ProjectFolders";
+import { ResearchFolders } from "./ResearchFolders";
 import { useLaptopFolderTexture } from "./useLaptopFolderTexture";
 import { StudyModelSlot, StudyAssetBoundary } from "@/components/study/StudyModel";
 import { studyModelConfigs } from "@/components/study/studyModels";
@@ -49,7 +49,7 @@ const LAPTOP_SCALE = 1.25;
 const LAPTOP_YAW = THREE.MathUtils.degToRad(28);
 const LAPTOP_LID_TILT = THREE.MathUtils.degToRad(13);
 const LAPTOP_LID_POSITION = new THREE.Vector3(0, 0.09, -0.43);
-const LAPTOP_SCREEN_LOCAL = new THREE.Vector3(0, 0.48, 0.059);
+const LAPTOP_SCREEN_LOCAL = new THREE.Vector3(0, 0.48, 0.18);
 const LAPTOP_SCREEN_CENTER = new THREE.Vector3();
 const laptopScreenRef: { current: THREE.Mesh | null } = { current: null };
 
@@ -85,6 +85,7 @@ const LAPTOP_FOCUS_POINT: Point = [
 ];
 const PORTFOLIO_FOCUS_POINT: Point = [0.055, 1.01, -1.42];
 const EXPERIENCE_FOCUS_POINT: Point = [1.715, 0.44, -1.94];
+const DRAWER_FOCUS_POINT: Point = [0.725, -0.1, -0.06];
 const PHONE_POSITION: Point = [3.08, FLOOR_TOP, -0.18];
 const PHONE_YAW = THREE.MathUtils.degToRad(-45);
 const RESUME_HREF = siteProfile.resumeHref;
@@ -120,6 +121,7 @@ function getIdCardAlignment() {
 getIdCardAlignment();
 type DetailView =
   | "computer"
+  | "drawer"
   | "experience"
   | "portfolio"
   | null;
@@ -177,6 +179,8 @@ function CameraRig({
         target.y + face.normal.y * faceDistance,
         target.z + face.normal.z * faceDistance,
       );
+    } else if (detailView === "drawer") {
+      destination.set(target.x + 4, target.y + 3, target.z + 4);
     } else if (detailView === "experience") {
       destination.set(target.x + 4, target.y + 2.8, target.z + 3);
     } else if (bookEntryStage === "zoom") {
@@ -246,7 +250,9 @@ function CameraRig({
       );
       const focusZoom =
         detailView === "computer"
-          ? 12.8
+          ? 16
+          : detailView === "drawer"
+            ? 3.7
           : detailView === "experience"
             ? 3.2
           : bookEntryStage === "zoom"
@@ -1122,37 +1128,24 @@ function RetroSideBriefcase({
   );
 }
 
-// Kept below for visual regression reference; drawer interaction is disabled.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function RetroResearchDrawers({
-  focused,
-  onInspect,
   onOpenResearch,
 }: {
-  focused: boolean;
-  onInspect: () => void;
   onOpenResearch: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
-    document.body.style.cursor = hovered
-      ? focused
-        ? "pointer"
-        : "zoom-in"
-      : "auto";
+    document.body.style.cursor = hovered ? "pointer" : "auto";
     return () => {
       document.body.style.cursor = "auto";
     };
-  }, [focused, hovered]);
+  }, [hovered]);
 
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
-    if (focused) {
-      onOpenResearch();
-      return;
-    }
-    onInspect();
+    if (!isIntentionalClick(event)) return;
+    onOpenResearch();
   }
 
   return (
@@ -1182,7 +1175,7 @@ function RetroResearchDrawers({
         >
           <div className="computer-hover-prompt">
             <span>RESEARCH · FILES</span>
-            {focused ? "Click to open Research" : "Click to inspect"}
+            Click to open Research folders
           </div>
         </Html>
       )}
@@ -1196,12 +1189,14 @@ function RetroDesk({
   onOpenPortfolio,
   onOpenTeachingBook,
   onOpenExperience,
+  onOpenResearch,
 }: {
   portfolioFocused: boolean;
   onInspectPortfolio: () => void;
   onOpenPortfolio: () => void;
   onOpenTeachingBook: () => void;
   onOpenExperience: () => void;
+  onOpenResearch: () => void;
 }) {
 
   return (
@@ -1243,6 +1238,9 @@ function RetroDesk({
       <RetroSideBriefcase
         onOpenExperience={onOpenExperience}
       />
+      <RetroResearchDrawers
+        onOpenResearch={onOpenResearch}
+      />
     </group>
   );
 }
@@ -1250,19 +1248,22 @@ function RetroDesk({
 function RetroLaptop({
   focused,
   onInspect,
+  onOpenProject,
 }: {
   focused: boolean;
   onInspect: () => void;
+  onOpenProject: (index: number) => void;
 }) {
-  const screenTexture = useLaptopFolderTexture();
+  const [hoveredProject, setHoveredProject] = useState<number | null>(null);
+  const screenTexture = useLaptopFolderTexture(hoveredProject);
   const [hovered, setHovered] = useState(false);
 
   useEffect(() => {
-    document.body.style.cursor = hovered && !focused ? "pointer" : "auto";
+    document.body.style.cursor = (hovered && !focused) || hoveredProject !== null ? "pointer" : "auto";
     return () => {
       document.body.style.cursor = "auto";
     };
-  }, [focused, hovered]);
+  }, [focused, hovered, hoveredProject]);
 
   function handleLaptopClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
@@ -1270,6 +1271,12 @@ function RetroLaptop({
     if (!focused) {
       onInspect();
     }
+  }
+
+  function handleProjectClick(event: ThreeEvent<MouseEvent>, index: number) {
+    event.stopPropagation();
+    if (!isIntentionalClick(event) || !focused) return;
+    onOpenProject(index);
   }
 
   return (
@@ -1318,16 +1325,36 @@ function RetroLaptop({
           ref={(mesh) => {
             laptopScreenRef.current = mesh;
           }}
-          position={[0, 0.48, 0.059]}
+          position={[0, 0.48, 0.18]}
           onClick={handleLaptopClick}
         >
-          <planeGeometry args={[1.17, 0.66]} />
+          <planeGeometry args={[1.27, 0.74]} />
           <meshBasicMaterial
             color={screenTexture ? "#ffffff" : "#171c28"}
             map={screenTexture ?? undefined}
             toneMapped={false}
           />
         </mesh>
+        {focused && [-0.394, 0, 0.394].map((x, index) => (
+          <mesh
+            key={index}
+            position={[x, 0.515, 0.19]}
+            onClick={(event) => handleProjectClick(event, index)}
+            onPointerEnter={(event) => {
+              event.stopPropagation();
+              setHoveredProject(index);
+            }}
+            onPointerLeave={() => setHoveredProject(null)}
+          >
+            <planeGeometry args={[0.323, 0.348]} />
+            <meshBasicMaterial
+              depthWrite={false}
+              opacity={0}
+              side={THREE.DoubleSide}
+              transparent
+            />
+          </mesh>
+        ))}
 
       </group>
       {hovered && !focused && (
@@ -1373,15 +1400,18 @@ function StudyWorld({
   computerFocused,
   experienceFocused,
   portfolioFocused,
+  researchFocused,
   phoneFocused,
   teachingBookOpen,
   reducedMotion,
   onInspectComputer,
+  onOpenComputerProject,
   onInspectPortfolio,
   onOpenPortfolio,
   onOpenTeachingBook,
   onOpenExperience,
   onInspectPhone,
+  onOpenResearch,
   overviewViewApiRef,
 }: {
   focus: Point | null;
@@ -1390,15 +1420,18 @@ function StudyWorld({
   computerFocused: boolean;
   experienceFocused: boolean;
   portfolioFocused: boolean;
+  researchFocused: boolean;
   phoneFocused: boolean;
   teachingBookOpen: boolean;
   reducedMotion: boolean;
   onInspectComputer: () => void;
+  onOpenComputerProject: (index: number) => void;
   onInspectPortfolio: () => void;
   onOpenPortfolio: () => void;
   onOpenTeachingBook: () => void;
   onOpenExperience: () => void;
   onInspectPhone: () => void;
+  onOpenResearch: () => void;
   overviewViewApiRef: MutableRefObject<OverviewViewApi | null>;
 }) {
   const { entries, phase } = useStudyLoadingSnapshot();
@@ -1454,6 +1487,7 @@ function StudyWorld({
             onOpenPortfolio={onOpenPortfolio}
             onOpenTeachingBook={onOpenTeachingBook}
             onOpenExperience={onOpenExperience}
+            onOpenResearch={onOpenResearch}
           />
           <StudyModelSlot
             config={studyModelConfigs.bookStackFloor}
@@ -1467,6 +1501,7 @@ function StudyWorld({
           <RetroLaptop
             focused={computerFocused}
             onInspect={onInspectComputer}
+            onOpenProject={onOpenComputerProject}
           />
           <RetroChair />
           <StudyModelSlot
@@ -1490,6 +1525,8 @@ function StudyWorld({
         detailView={
           computerFocused
             ? "computer"
+            : researchFocused
+              ? "drawer"
             : experienceFocused
               ? "experience"
             : portfolioFocused
@@ -1500,6 +1537,8 @@ function StudyWorld({
         focus={
           computerFocused
             ? LAPTOP_FOCUS_POINT
+            : researchFocused
+              ? DRAWER_FOCUS_POINT
             : experienceFocused
               ? EXPERIENCE_FOCUS_POINT
             : portfolioFocused
@@ -1510,7 +1549,7 @@ function StudyWorld({
       />
       <OverviewControls
         apiRef={overviewViewApiRef}
-        disabled={phase !== "ready" || teachingBookOpen || Boolean(focus || entering || computerFocused || experienceFocused || portfolioFocused || phoneFocused)}
+        disabled={phase !== "ready" || teachingBookOpen || Boolean(focus || entering || computerFocused || researchFocused || experienceFocused || portfolioFocused || phoneFocused)}
       />
       <StudyDiagnostics />
       <StudyScenePreparation />
@@ -1523,11 +1562,11 @@ export function StudyScene() {
   const { phase } = useStudyLoadingSnapshot();
   useEffect(() => {
     store.configure(studyAssets);
-    preloadStudyAssets(store);
+    preloadStudyAssets(store, false);
   }, [store]);
   useEffect(() => {
     if (phase !== "ready") return;
-    const timer = window.setTimeout(preloadPortfolio, 200);
+    const timer = window.setTimeout(preloadPortfolio, 1400);
     return () => window.clearTimeout(timer);
   }, [phase]);
   if (phase === "module" || phase === "unavailable") return null;
@@ -1536,36 +1575,111 @@ export function StudyScene() {
 
 function StudySceneContent() {
   const store = useStudyLoading();
+  const { phase: scenePhase } = useStudyLoadingSnapshot();
   const renderer = useRef<THREE.WebGLRenderer | null>(null);
-  const createRenderer = useCallback((defaults: THREE.WebGLRendererParameters) => {
+  const rendererSetup = useRef<Promise<THREE.WebGLRenderer> | null>(null);
+  const createRenderer = useCallback((defaults: {
+    canvas: EventTarget;
+    alpha?: boolean;
+    antialias?: boolean;
+    powerPreference?: WebGLPowerPreference;
+  }) => {
     // Fiber awaits custom renderer factories. Overlapping configuration passes
     // must reuse one renderer; two renderers cannot safely share this canvas.
-    if (renderer.current) return renderer.current;
-    try {
-      renderer.current = new THREE.WebGLRenderer({ ...defaults, antialias: true, alpha: false, powerPreference: "high-performance" });
-      return renderer.current;
-    } catch (error) {
-      store.fail("WebGL is unavailable", true);
-      throw error;
-    }
+    if (renderer.current) return Promise.resolve(renderer.current);
+    if (rendererSetup.current) return rendererSetup.current;
+
+    rendererSetup.current = (async () => {
+      const canvas = defaults.canvas as HTMLCanvasElement;
+      const forceWebGpu = new URLSearchParams(window.location.search).has("webgpu");
+      const preferModernRenderer = forceWebGpu || /Edg\//.test(navigator.userAgent);
+      const contextAttributes: WebGLContextAttributes = {
+        alpha: false,
+        antialias: true,
+        depth: true,
+        failIfMajorPerformanceCaveat: false,
+        // Let the browser choose the stable adapter. Forcing the discrete GPU can
+        // make WebGL2 creation fail on Windows laptops with hybrid graphics.
+        powerPreference: "default",
+        premultipliedAlpha: true,
+        preserveDrawingBuffer: false,
+        stencil: false,
+      };
+
+      // Ask the actual Fiber canvas for its context before constructing Three's
+      // renderer. If WebGL is blocked, Three never installs its creation-error
+      // listener and therefore cannot turn a supported fallback into a dev-overlay
+      // error. Reusing this context also avoids briefly allocating two GPU contexts.
+      const context = !preferModernRenderer && typeof canvas.getContext === "function"
+        ? canvas.getContext("webgl2", contextAttributes) as WebGL2RenderingContext | null
+          ?? canvas.getContext("webgl2") as WebGL2RenderingContext | null
+        : null;
+
+      if (context) {
+        try {
+          return new THREE.WebGLRenderer({
+            canvas,
+            ...contextAttributes,
+            context,
+          });
+        } catch {
+          // Continue to the WebGPU backend below.
+        }
+      }
+
+      // The modern renderer uses WebGPU when available and otherwise owns a
+      // separate WebGL2 backend with more conservative setup. This second path
+      // is useful on Edge installations that reject the classic renderer.
+      try {
+        const { WebGPURenderer } = await import("three/webgpu");
+        const webGpuRenderer = new WebGPURenderer({
+          alpha: false,
+          antialias: true,
+          canvas,
+        });
+        await webGpuRenderer.init();
+        return webGpuRenderer as unknown as THREE.WebGLRenderer;
+      } catch {
+        // The accessible non-GPU experience below remains available.
+      }
+
+      store.fail("3D graphics are unavailable on this device.", true);
+      // Fiber awaits async renderer factories. Keeping this promise pending
+      // lets the accessible fallback own the UI without an unhandled rejection.
+      return new Promise<THREE.WebGLRenderer>(() => undefined);
+    })();
+
+    rendererSetup.current.then((value) => {
+      renderer.current = value;
+    });
+    return rendererSetup.current;
   }, [store]);
   const router = useRouter();
   const [focus, setFocus] = useState<Point | null>(null);
   const [entering, setEntering] = useState(false);
   const [bookEntryStage, setBookEntryStage] = useState<"idle" | "focus" | "zoom">("idle");
-  const [activeView, setActiveView] = useState<"computer" | "experience" | "portfolio" | "phone" | "teachingBook" | null>(null);
+  const [activeView, setActiveView] = useState<"computer" | "drawerResearch" | "experience" | "portfolio" | "phone" | "teachingBook" | null>(null);
   const overviewViewApiRef = useRef<OverviewViewApi | null>(null);
   const entryTimersRef = useRef<number[]>([]);
   const [reducedMotion, setReducedMotion] = useState(false);
   const inspecting = activeView !== null && activeView !== "teachingBook";
 
   useEffect(() => {
-    router.prefetch("/portfolio");
     return () => {
       entryTimersRef.current.forEach((timer) => window.clearTimeout(timer));
       entryTimersRef.current = [];
     };
-  }, [router]);
+  }, []);
+  useEffect(() => {
+    if (scenePhase !== "ready") return;
+    const timer = window.setTimeout(() => {
+      router.prefetch("/portfolio");
+      router.prefetch("/projects");
+      router.prefetch("/research");
+      projects.forEach((project) => router.prefetch(`/projects/${project.slug}`));
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [router, scenePhase]);
   const clearInspect = useCallback(() => {
     entryTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     entryTimersRef.current = [];
@@ -1599,7 +1713,7 @@ function StudySceneContent() {
   }, []);
 
   useEffect(() => {
-    if (!inspecting || activeView === "computer" || activeView === "experience") return;
+    if (!inspecting || activeView === "drawerResearch" || activeView === "experience") return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       clearInspect();
@@ -1631,6 +1745,28 @@ function StudySceneContent() {
     entryTimersRef.current.push(focusTimer, routeTimer);
   }
 
+  function openComputerProject(index: number) {
+    if (entering || activeView !== "computer") return;
+    const project = projects[index];
+    if (!project) return;
+    setEntering(true);
+    const timer = window.setTimeout(
+      () => router.push(`/projects/${project.slug}`),
+      reducedMotion ? 80 : 360,
+    );
+    entryTimersRef.current.push(timer);
+  }
+
+  function openResearchFolders() {
+    if (entering || activeView !== null || bookEntryStage !== "idle") return;
+    overviewViewApiRef.current?.capture();
+    setFocus(DRAWER_FOCUS_POINT);
+    setActiveView("drawerResearch");
+  }
+
+  const computerFocused = activeView === "computer";
+  const researchFocused = activeView === "drawerResearch";
+
   return (
     <div
       tabIndex={-1}
@@ -1657,7 +1793,8 @@ function StudySceneContent() {
         fallback={<span>The interactive study requires WebGL.</span>}
       >
         <StudyWorld
-          computerFocused={activeView === "computer"}
+          computerFocused={computerFocused}
+          researchFocused={researchFocused}
           experienceFocused={activeView === "experience"}
           portfolioFocused={activeView === "portfolio"}
           phoneFocused={activeView === "phone"}
@@ -1666,11 +1803,13 @@ function StudySceneContent() {
           bookEntryStage={bookEntryStage}
           focus={focus}
           onInspectComputer={() => inspect("computer")}
+          onOpenComputerProject={openComputerProject}
           onInspectPortfolio={startPortfolioEntry}
           onOpenPortfolio={startPortfolioEntry}
           onOpenTeachingBook={openTeachingBook}
           onOpenExperience={() => inspect("experience")}
           onInspectPhone={() => inspect("phone")}
+          onOpenResearch={openResearchFolders}
           overviewViewApiRef={overviewViewApiRef}
           reducedMotion={reducedMotion}
         />
@@ -1687,7 +1826,25 @@ function StudySceneContent() {
           </button>
         </>
       )}
-      {activeView === "computer" && <ProjectFolders onClose={clearInspect} reducedMotion={reducedMotion} />}
+      {activeView === "drawerResearch" && <ResearchFolders onClose={clearInspect} reducedMotion={reducedMotion} />}
+      {activeView === "computer" && (
+        <div className="computer-inspection-ui computer-inspection-ui--desktop" aria-live="polite">
+          <button
+            className="computer-inspection-back"
+            type="button"
+            onClick={clearInspect}
+          >
+            <span aria-hidden="true">←</span>
+            Back to room
+          </button>
+          <div className="computer-detail-card">
+            <span>PROJECT DESKTOP</span>
+            <strong>Choose a folder</strong>
+            <p>The screen is active. Select a folder to open that project directly.</p>
+            <small>Click a folder · Esc to return</small>
+          </div>
+        </div>
+      )}
       {activeView === "experience" && <ExperienceCards onClose={clearInspect} reducedMotion={reducedMotion} />}
       {activeView === "phone" && (
         <div className="computer-inspection-ui" aria-live="polite">

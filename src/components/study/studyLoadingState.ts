@@ -81,7 +81,9 @@ export function createStudyLoadingStore() {
         },
         advance(phase: "preparing" | "compiled" | "ready", run: number) {
             const previous = { preparing: "loading", compiled: "preparing", ready: "compiled" };
-            if (snapshot.run !== run || !snapshot.shellReady || !loadingSummary(snapshot).settled || snapshot.phase !== previous[phase])
+            const requiredReady = Object.values(snapshot.entries).length > 0
+                && Object.values(snapshot.entries).every((entry) => !entry.required || entry.status === "ready");
+            if (snapshot.run !== run || !snapshot.shellReady || !requiredReady || snapshot.phase !== previous[phase])
                 return;
             publish({ ...snapshot, phase });
         },

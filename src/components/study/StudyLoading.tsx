@@ -78,9 +78,14 @@ export function StudyLoadingScreen({ onRetry }: {
           <button type="button" onClick={() => { setSlow(false); onRetry(); }}>Retry loading</button>
           {!fatal && (summary.canSkip || optionalPending) && <button type="button" onClick={() => store.skipOptional(slow)}>Continue without these items</button>}
         </div>}
-        {(unavailable || fatal) && <nav className="study-loading-links" aria-label="Explore without 3D">
-          <Link href="/projects">Projects</Link><Link href="/teaching">Teaching</Link><Link href="/research">Research</Link><Link href="/experience">Experience</Link><Link href="/portfolio">Portfolio</Link>
-        </nav>}
+        {(unavailable || fatal) && <>
+          {unavailable && <div className="study-loading-actions">
+            <button type="button" onClick={onRetry}>Try the 3D study again</button>
+          </div>}
+          <nav className="study-loading-links" aria-label="Explore without 3D">
+            <Link href="/projects">Projects</Link><Link href="/teaching">Teaching</Link><Link href="/research">Research</Link><Link href="/experience">Experience</Link><Link href="/portfolio">Portfolio</Link>
+          </nav>
+        </>}
       </div>
     </div>);
 }

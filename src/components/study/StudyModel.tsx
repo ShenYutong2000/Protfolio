@@ -166,8 +166,9 @@ export function StudyModelSlot({
   onLoaded,
 }: StudyModelProps & { fallback: ReactNode }) {
   const store = useStudyLoading();
-  const entry = useSyncExternalStore(store.subscribe, () => store.getSnapshot().entries[config.src], () => store.getSnapshot().entries[config.src]);
-  if (!config.enabled || !entry || entry.status === "skipped") return null;
+  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  const entry = snapshot.entries[config.src];
+  if (!config.enabled || !entry || entry.status === "skipped" || (!entry.required && snapshot.phase !== "ready")) return null;
 
   return (
     <StudyAssetBoundary

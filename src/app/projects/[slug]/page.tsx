@@ -42,21 +42,9 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
       ]}
       tags={project.tags}
       sections={[
-        {
-          label: "Challenge",
-          title: "The question behind the work",
-          body: project.challenge,
-        },
-        {
-          label: "Approach",
-          title: "From research to a working direction",
-          body: project.approach,
-        },
-        {
-          label: "Outcome",
-          title: "What the project made possible",
-          body: project.outcome,
-        },
+        { label: "Challenge", title: "The question behind the work", body: project.challenge },
+        { label: "Approach", title: "From research to a working direction", body: project.approach },
+        { label: "Outcome", title: "What the project made possible", body: project.outcome },
       ]}
       links={project.links}
     />

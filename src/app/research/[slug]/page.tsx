@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { DetailPage } from "@/components/DetailPage";
+import { ResearchPixelPage } from "@/components/projects/ProjectPixelPage";
+import type { Project } from "@/data/content";
 import { getResearchItem, research } from "@/data/content";
 
 type ResearchPageProps = {
@@ -29,39 +30,29 @@ export default async function ResearchDetailPage({
     notFound();
   }
 
+  const itemIndex = research.findIndex((entry) => entry.slug === item.slug);
+  const nextItem = research[(itemIndex + 1) % research.length];
+  const toPixelEntry = (entry: typeof item, index: number): Project => ({
+    slug: entry.slug,
+    index: String(index + 1).padStart(2, "0"),
+    title: entry.title,
+    summary: entry.summary,
+    meta: entry.venue,
+    year: entry.year,
+    duration: entry.status,
+    role: entry.collaborators,
+    tags: entry.keywords,
+    challenge: entry.question,
+    approach: entry.method,
+    outcome: entry.result,
+    links: entry.links,
+  });
+
   return (
-    <DetailPage
-      backHref="/research"
-      backLabel="Research index"
-      type={item.type}
-      year={item.year}
-      title={item.title}
-      summary={item.summary}
-      facts={[
-        { label: "Venue", value: item.venue },
-        { label: "Status", value: item.status },
-        { label: "With", value: item.collaborators },
-      ]}
-      tags={item.keywords}
-      sections={[
-        {
-          label: "Question",
-          title: "What the research asks",
-          body: item.question,
-        },
-        {
-          label: "Method",
-          title: "How the question was investigated",
-          body: item.method,
-        },
-        {
-          label: "Finding",
-          title: "What the work contributes",
-          body: item.result,
-        },
-      ]}
-      links={item.links}
-      tone="mint"
+    <ResearchPixelPage
+      project={toPixelEntry(item, itemIndex)}
+      nextProject={toPixelEntry(nextItem, (itemIndex + 1) % research.length)}
+      entryType={item.type}
     />
   );
 }
