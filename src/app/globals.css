@@ -3908,7 +3908,7 @@ body:has(.kind-project-page) .site-footer { display: none; }
   background: var(--kind-paper);
   color: var(--kind-ink);
   min-height: 100vh;
-  overflow: clip;
+  overflow: visible;
   position: relative;
 }
 
@@ -3938,6 +3938,15 @@ body:has(.kind-project-page) .site-footer { display: none; }
 .kind-project-nav a:hover { color: var(--kind-purple); }
 .kind-project-nav-next:hover { transform: translate(3px, -2px); }
 
+.kind-floating-ribbon {
+  height: 100vh;
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  width: 100vw;
+  z-index: 1;
+}
+
 .kind-project-hero { min-height: calc(100svh - 60px); padding: 35px clamp(22px, 6vw, 90px) 46px; }
 .kind-project-hero-meta { border-bottom: 1px solid color-mix(in srgb, var(--kind-ink) 20%, transparent); display: flex; font-size: .72rem; justify-content: space-between; letter-spacing: .11em; padding-bottom: 16px; text-transform: uppercase; }
 .kind-project-hero-grid { align-items: center; display: grid; gap: clamp(32px, 5vw, 90px); grid-template-columns: minmax(0, .9fr) minmax(420px, 1.1fr); margin: clamp(75px, 12vh, 145px) auto 0; max-width: 1440px; }
@@ -3954,9 +3963,6 @@ body:has(.kind-project-page) .site-footer { display: none; }
 .kind-interactive-scene { --scene-x: 0; --scene-y: 0; --scene-tilt: 0deg; min-height: 100px; overflow: hidden; position: relative; touch-action: pan-y; }
 .kind-scene-svg { display: block; height: 100%; overflow: visible; width: 100%; }
 .kind-scene-paper { fill: color-mix(in srgb, var(--kind-green) 14%, var(--kind-paper)); stroke: color-mix(in srgb, var(--kind-ink) 12%, transparent); stroke-width: 2; }
-.kind-scene-ribbons { fill: none; opacity: .92; pointer-events: none; }
-.kind-scene-ribbon { stroke-linecap: round; stroke-width: 5; vector-effect: non-scaling-stroke; transition: stroke-width 180ms ease, opacity 180ms ease; }
-.kind-interactive-scene:hover .kind-scene-ribbon { stroke-width: 6; }
 .kind-scene-objects { transform: translate(calc(var(--scene-x) * 7px), calc(var(--scene-y) * 5px)) rotate(var(--scene-tilt)); transform-box: fill-box; transform-origin: center; transition: transform 220ms ease-out; }
 .kind-scene-orb, .kind-scene-node { transform-box: fill-box; transform-origin: center; transition: transform 320ms cubic-bezier(.2,.8,.2,1); }
 .kind-interactive-scene:hover .kind-scene-orb.orb-one, .kind-interactive-scene:hover .kind-scene-node:nth-of-type(odd) { transform: scale(1.18); }

@@ -15,32 +15,6 @@ type SceneKind = "research" | "atlas" | "archive";
 type SceneMode = "hero" | "manifesto" | "challenge" | "approach" | "outcome";
 type Palette = (typeof palettes)[number];
 
-function ribbonPath(kind: SceneKind, mode: SceneMode, x: number, y: number, vx: number, vy: number, phase: number) {
-  const wave = Math.sin(phase) * 10;
-  const momentumX = Math.max(-1, Math.min(1, vx * 3.2));
-  const momentumY = Math.max(-1, Math.min(1, vy * 3.2));
-
-  if (mode === "manifesto") {
-    return `M 56 ${248 + y * 86} C ${196 + x * 132 + momentumX * 38} ${86 - y * 78 + wave}, ${414 - x * 150 - momentumX * 44} ${414 + y * 78 - wave}, 602 ${248 - y * 72}`;
-  }
-  if (mode === "challenge") {
-    return `M 42 ${116 + y * 60} C ${118 + x * 120} ${410 - y * 122 + momentumY * 42}, ${408 - x * 170} ${58 + y * 126 - momentumY * 34}, 598 ${384 - y * 80}`;
-  }
-  if (mode === "approach") {
-    return `M 28 ${374 - y * 72} C ${150 + x * 152 + momentumX * 42} ${78 + y * 120}, ${298 - x * 112 - momentumX * 34} ${436 - y * 138}, 612 ${126 + y * 86}`;
-  }
-  if (mode === "outcome") {
-    return `M 24 ${254 + y * 90} C ${166 - x * 132} ${116 + momentumY * 34}, ${378 + x * 156} ${392 - momentumY * 34}, 616 ${224 - y * 78}`;
-  }
-  if (kind === "atlas") {
-    return `M 46 ${386 - y * 74} C ${174 + x * 142 + momentumX * 42} ${310 + wave}, ${338 - x * 142 - momentumX * 36} ${132 - wave}, 602 ${108 + y * 84}`;
-  }
-  if (kind === "archive") {
-    return `M 48 ${112 + y * 72} C ${196 - x * 136} ${60 + momentumY * 38 + wave}, ${404 + x * 156} ${392 - momentumY * 38 - wave}, 600 ${378 - y * 82}`;
-  }
-  return `M 28 ${132 + y * 74} C ${180 + x * 136 + momentumX * 44} ${34 - wave}, ${380 - x * 150 - momentumX * 36} ${438 + wave}, 612 ${262 - y * 82}`;
-}
-
 function sceneLabel(kind: SceneKind) {
   if (kind === "research") return "Research assistant interactive illustration";
   if (kind === "atlas") return "Community data atlas interactive illustration";
@@ -61,7 +35,6 @@ function KindInteractiveScene({
   className?: string;
 }) {
   const sceneRef = useRef<HTMLDivElement | null>(null);
-  const ribbonRef = useRef<SVGPathElement | null>(null);
   const target = useRef({ x: 0, y: 0, active: false });
   const current = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
   const visible = useRef(true);
@@ -71,7 +44,6 @@ function KindInteractiveScene({
     if (!node || !motionEnabled) return;
 
     let raf = 0;
-    let phase = 0;
     const observer = new IntersectionObserver(([entry]) => {
       visible.current = entry.isIntersecting;
     }, { threshold: 0.08 });
@@ -86,12 +58,10 @@ function KindInteractiveScene({
         current.current.vy *= .76;
         current.current.x += current.current.vx;
         current.current.y += current.current.vy;
-        phase += target.current.active ? .028 + Math.min(.025, Math.hypot(current.current.vx, current.current.vy) * .04) : .012;
-        const { x, y, vx, vy } = current.current;
+        const { x, y } = current.current;
         node.style.setProperty("--scene-x", x.toFixed(4));
         node.style.setProperty("--scene-y", y.toFixed(4));
         node.style.setProperty("--scene-tilt", `${(x * 8).toFixed(2)}deg`);
-        ribbonRef.current?.setAttribute("d", ribbonPath(kind, mode, x, y, vx, vy, phase));
       }
       raf = requestAnimationFrame(render);
     };
@@ -128,18 +98,7 @@ function KindInteractiveScene({
       onPointerLeave={leavePointer}
     >
       <svg className="kind-scene-svg" viewBox="0 0 640 500" aria-hidden="true">
-        <defs>
-          <clipPath id={`scene-clip-${kind}`}><rect x="15" y="15" width="610" height="470" rx="36" /></clipPath>
-        </defs>
         <rect className="kind-scene-paper" x="15" y="15" width="610" height="470" rx="36" fill="#fffbed" />
-        <g clipPath={`url(#scene-clip-${kind})`} className="kind-scene-ribbons" aria-hidden="true">
-          <path
-            ref={ribbonRef}
-            d={ribbonPath(kind, mode, 0, 0, 0, 0, 0)}
-            stroke={palette.green}
-            className="kind-scene-ribbon"
-          />
-        </g>
         {kind === "research" && (
           <g className="kind-scene-objects kind-research-objects">
             <rect x="132" y="126" width="376" height="246" rx="20" fill="#fffbed" stroke={palette.ink} strokeWidth="4" />
@@ -174,6 +133,204 @@ function KindInteractiveScene({
       </svg>
     </div>
   );
+}
+
+type RibbonSection = "hero" | "manifesto" | "challenge" | "approach" | "outcome" | "footer";
+type RibbonPoint = readonly [number, number];
+
+const ribbonSequence: RibbonSection[] = ["hero", "manifesto", "challenge", "approach", "outcome", "footer"];
+const ribbonShapes: Record<RibbonSection, RibbonPoint[]> = {
+  hero: [[.38, .39], [.48, .25], [.61, .14], [.73, .12], [.83, .18], [.91, .29], [.97, .39]],
+  manifesto: [[.06, .78], [.16, .53], [.36, .34], [.58, .29], [.78, .39], [.88, .58], [.76, .80]],
+  challenge: [[.11, .22], [.23, .43], [.40, .59], [.58, .56], [.76, .40], [.84, .21], [.71, .12]],
+  approach: [[.06, .72], [.19, .51], [.37, .34], [.56, .30], [.73, .42], [.86, .64], [.94, .78]],
+  outcome: [[.04, .42], [.18, .22], [.36, .18], [.55, .32], [.70, .57], [.84, .73], [.96, .53]],
+  footer: [[.10, .82], [.24, .66], [.40, .61], [.57, .70], [.71, .84], [.84, .74], [.93, .59]],
+};
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function interpolateRibbonShape(stage: number): RibbonPoint[] {
+  const index = clamp(Math.floor(stage), 0, ribbonSequence.length - 1);
+  const nextIndex = Math.min(ribbonSequence.length - 1, index + 1);
+  const amount = clamp(stage - index, 0, 1);
+  const first = ribbonShapes[ribbonSequence[index]];
+  const second = ribbonShapes[ribbonSequence[nextIndex]];
+  return first.map((point, pointIndex) => [
+    point[0] + (second[pointIndex][0] - point[0]) * amount,
+    point[1] + (second[pointIndex][1] - point[1]) * amount,
+  ] as const);
+}
+
+function drawRibbon(ctx: CanvasRenderingContext2D, points: RibbonPoint[]) {
+  ctx.beginPath();
+  ctx.moveTo(points[0][0], points[0][1]);
+  for (let index = 0; index < points.length - 1; index += 1) {
+    const previous = points[index - 1] ?? points[index];
+    const current = points[index];
+    const next = points[index + 1];
+    const afterNext = points[index + 2] ?? next;
+    const controlOne: RibbonPoint = [
+      current[0] + (next[0] - previous[0]) / 6,
+      current[1] + (next[1] - previous[1]) / 6,
+    ];
+    const controlTwo: RibbonPoint = [
+      next[0] - (afterNext[0] - current[0]) / 6,
+      next[1] - (afterNext[1] - current[1]) / 6,
+    ];
+    ctx.bezierCurveTo(controlOne[0], controlOne[1], controlTwo[0], controlTwo[1], next[0], next[1]);
+  }
+  ctx.stroke();
+}
+
+function KindFloatingRibbon({ palette, motionEnabled }: { palette: Palette; motionEnabled: boolean }) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const page = canvas?.closest<HTMLElement>(".kind-project-page");
+    if (!canvas || !page) return;
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    const state = {
+      pointerX: .5,
+      pointerY: .42,
+      targetPointerX: .5,
+      targetPointerY: .42,
+      pointerVX: 0,
+      pointerVY: 0,
+      scrollY: window.scrollY,
+      targetScrollY: window.scrollY,
+      scrollKick: 0,
+      stage: 0,
+      lastScrollY: window.scrollY,
+    };
+    const viewport = { width: window.innerWidth, height: window.innerHeight, ratio: 1 };
+    let frame = 0;
+    let previousTime = performance.now();
+    let anchors: { section: RibbonSection; top: number }[] = [];
+
+    const measure = () => {
+      anchors = ribbonSequence.map((section) => {
+        const element = page.querySelector<HTMLElement>(`[data-ribbon-section="${section}"]`);
+        return { section, top: element ? element.getBoundingClientRect().top + window.scrollY : 0 };
+      });
+    };
+
+    const resize = () => {
+      viewport.width = window.innerWidth;
+      viewport.height = window.innerHeight;
+      viewport.ratio = Math.min(1.75, window.devicePixelRatio || 1);
+      canvas.width = Math.round(viewport.width * viewport.ratio);
+      canvas.height = Math.round(viewport.height * viewport.ratio);
+      canvas.style.width = `${viewport.width}px`;
+      canvas.style.height = `${viewport.height}px`;
+      context.setTransform(viewport.ratio, 0, 0, viewport.ratio, 0, 0);
+      measure();
+    };
+
+    const getStage = (scrollY: number) => {
+      const probe = scrollY + viewport.height * .42;
+      if (anchors.length < 2 || anchors.every((anchor) => anchor.top === 0)) {
+        return clamp(scrollY / Math.max(1, document.documentElement.scrollHeight - viewport.height) * (ribbonSequence.length - 1), 0, ribbonSequence.length - 1);
+      }
+      if (probe <= anchors[0].top) return 0;
+      for (let index = 0; index < anchors.length - 1; index += 1) {
+        const start = anchors[index].top;
+        const end = Math.max(start + 1, anchors[index + 1].top);
+        if (probe <= end) return index + clamp((probe - start) / (end - start), 0, 1);
+      }
+      return ribbonSequence.length - 1;
+    };
+
+    const draw = () => {
+      const stage = motionEnabled ? state.stage : getStage(state.scrollY);
+      const base = interpolateRibbonShape(stage);
+      const pointerOffsetX = (state.pointerX - .5) * .18;
+      const pointerOffsetY = (state.pointerY - .5) * .22;
+      const pointerVelocityX = clamp(state.pointerVX * .012, -.045, .045);
+      const pointerVelocityY = clamp(state.pointerVY * .012, -.055, .055);
+      const scrollOffsetY = clamp(-state.scrollKick * .15, -.22, .22);
+      const points = base.map(([x, y], index) => {
+        const weight = Math.sin((index / (base.length - 1)) * Math.PI);
+        const edgeWeight = index / (base.length - 1) - .5;
+        const mobileHeroDrop = viewport.width < 760 && stage < 1 ? .42 : 0;
+        return [
+          clamp(x + pointerOffsetX * (.4 + weight) + pointerVelocityX * weight + edgeWeight * pointerVelocityY * .2, -.08, 1.08) * viewport.width,
+          clamp(y + mobileHeroDrop + pointerOffsetY * weight + pointerVelocityY * weight + scrollOffsetY * (.45 + weight), -.16, 1.16) * viewport.height,
+        ] as const;
+      });
+
+      context.clearRect(0, 0, viewport.width, viewport.height);
+      context.strokeStyle = palette.green;
+      context.lineWidth = 2.35;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.globalAlpha = .9;
+      drawRibbon(context, points);
+      context.globalAlpha = 1;
+    };
+
+    const pointerMove = (event: PointerEvent) => {
+      if (event.pointerType === "touch") return;
+      state.targetPointerX = clamp(event.clientX / Math.max(1, viewport.width), 0, 1);
+      state.targetPointerY = clamp(event.clientY / Math.max(1, viewport.height), 0, 1);
+    };
+    const pointerLeave = () => {
+      state.targetPointerX = .5;
+      state.targetPointerY = .42;
+    };
+    const scroll = () => {
+      const next = window.scrollY;
+      const delta = next - state.lastScrollY;
+      state.targetScrollY = next;
+      state.scrollKick = clamp(state.scrollKick + delta / Math.max(260, viewport.height * .42), -1.5, 1.5);
+      state.lastScrollY = next;
+      if (!motionEnabled) draw();
+    };
+
+    const render = (time: number) => {
+      const delta = Math.min(.05, Math.max(.001, (time - previousTime) / 1000));
+      previousTime = time;
+      if (document.visibilityState !== "hidden") {
+        const pointerBlend = 1 - Math.exp(-delta * 11);
+        const scrollBlend = 1 - Math.exp(-delta * 8);
+        const previousX = state.pointerX;
+        const previousY = state.pointerY;
+        state.pointerX += (state.targetPointerX - state.pointerX) * pointerBlend;
+        state.pointerY += (state.targetPointerY - state.pointerY) * pointerBlend;
+        state.pointerVX = (state.pointerX - previousX) / delta;
+        state.pointerVY = (state.pointerY - previousY) / delta;
+        state.scrollY += (state.targetScrollY - state.scrollY) * scrollBlend;
+        state.stage += (getStage(state.scrollY) - state.stage) * (1 - Math.exp(-delta * 7));
+        state.scrollKick *= Math.exp(-delta * 2.7);
+        draw();
+      }
+      frame = requestAnimationFrame(render);
+    };
+
+    resize();
+    window.addEventListener("resize", resize);
+    window.addEventListener("pointermove", pointerMove, { passive: true });
+    window.addEventListener("blur", pointerLeave);
+    window.addEventListener("scroll", scroll, { passive: true });
+    if (motionEnabled) frame = requestAnimationFrame(render);
+    else draw();
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("pointermove", pointerMove);
+      window.removeEventListener("blur", pointerLeave);
+      window.removeEventListener("scroll", scroll);
+    };
+  }, [motionEnabled, palette.green]);
+
+  return <canvas ref={canvasRef} className="kind-floating-ribbon" aria-hidden="true" />;
 }
 
 function MotionToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
@@ -228,13 +385,14 @@ export function KindProjectPage({ project, nextProject }: { project: Project; ne
 
   return (
     <main className="kind-project-page" style={pageStyle}>
+      <KindFloatingRibbon palette={palette} motionEnabled={motionEnabled} />
       <nav className="kind-project-nav" aria-label="Project navigation">
         <Link href="/" className="kind-project-brand"><span className="kind-brand-mark" aria-hidden="true">✦</span> Interactive study</Link>
         <div className="kind-project-nav-center"><Link href="/projects">All projects</Link><span aria-hidden="true">·</span><span>Project / {project.index}</span></div>
         <Link href={`/projects/${nextProject.slug}`} className="kind-project-nav-next">Next <ArrowUpRight size={16} aria-hidden="true" /></Link>
       </nav>
 
-      <header className="kind-project-hero">
+      <header className="kind-project-hero" data-ribbon-section="hero">
         <div className="kind-project-hero-meta"><span>{project.meta}</span><span>{project.year} · {project.duration}</span></div>
         <div className="kind-project-hero-grid">
           <div className="kind-project-hero-copy kind-reveal">
@@ -248,7 +406,7 @@ export function KindProjectPage({ project, nextProject }: { project: Project; ne
         <a className="kind-project-scroll" href="#kind-overview"><span>Scroll to explore</span><ArrowDown size={18} aria-hidden="true" /></a>
       </header>
 
-      <section className="kind-project-manifesto kind-reveal" id="kind-overview">
+      <section className="kind-project-manifesto kind-reveal" id="kind-overview" data-ribbon-section="manifesto">
         <p className="kind-project-section-label">A closer look</p>
         <h2>Useful things are made of small, considered decisions<span>.</span></h2>
         <KindInteractiveScene kind={scene} mode="manifesto" palette={palette} motionEnabled={motionEnabled} className="kind-project-manifesto-scene" />
@@ -262,14 +420,14 @@ export function KindProjectPage({ project, nextProject }: { project: Project; ne
 
       <div className="kind-project-chapters">
         {chapters.map((chapter, chapterIndex) => (
-          <section className={`kind-project-chapter kind-reveal ${chapterIndex % 2 ? "is-reversed" : ""}`} key={chapter.label}>
+          <section className={`kind-project-chapter kind-reveal ${chapterIndex % 2 ? "is-reversed" : ""}`} data-ribbon-section={chapter.mode} key={chapter.label}>
             <KindInteractiveScene kind={scene} mode={chapter.mode} palette={palette} motionEnabled={motionEnabled} className="kind-project-art-wrap" />
             <div className="kind-project-chapter-copy"><p className="kind-project-section-label">{chapter.label}</p><h2>{chapter.title}</h2><p>{chapter.body}</p></div>
           </section>
         ))}
       </div>
 
-      <footer className="kind-project-footer kind-reveal">
+      <footer className="kind-project-footer kind-reveal" data-ribbon-section="footer">
         <Link href="/projects" className="kind-project-back"><ArrowLeft size={16} aria-hidden="true" /> Back to all projects</Link>
         <Link href={`/projects/${nextProject.slug}`} className="kind-project-next"><span>Next project / {nextProject.index}</span><strong>{nextProject.title}</strong><ArrowUpRight size={34} aria-hidden="true" /></Link>
       </footer>
