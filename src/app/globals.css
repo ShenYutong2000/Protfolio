@@ -3897,3 +3897,265 @@ body:has(.projects-showcase) .site-footer {
   .project-ribbon-canvas { opacity: .45; }
   .projects-scroll-cue svg { animation: none; }
 }
+
+/* Built Kindly-inspired case study pages */
+body:has(.kind-project-page) {
+  background: #fffbed;
+  color: #27222c;
+}
+
+body:has(.kind-project-page) .site-header,
+body:has(.kind-project-page) .site-footer {
+  display: none;
+}
+
+.kind-project-page {
+  --kind-paper: #fffbed;
+  background: var(--kind-paper);
+  min-height: 100vh;
+  overflow: clip;
+  position: relative;
+}
+
+.kind-project-ribbons {
+  height: 100vh;
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+  width: 100vw;
+  z-index: 1;
+}
+
+.kind-project-nav,
+.kind-project-hero,
+.kind-project-overview,
+.kind-project-chapters,
+.kind-project-footer {
+  position: relative;
+  z-index: 2;
+}
+
+.kind-project-nav {
+  align-items: center;
+  border-bottom: 1px solid rgba(39, 34, 44, .25);
+  display: flex;
+  font-size: .72rem;
+  font-weight: 700;
+  justify-content: space-between;
+  left: 0;
+  letter-spacing: .08em;
+  padding: 19px clamp(22px, 4vw, 62px) 17px;
+  position: sticky;
+  text-transform: uppercase;
+  top: 0;
+  z-index: 5;
+}
+
+.kind-project-nav > div {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+}
+
+.kind-project-nav a { transition: color 180ms ease; }
+.kind-project-nav a:hover { color: var(--kind-purple); }
+.kind-project-nav > a:last-child { align-items: center; display: flex; gap: 6px; }
+
+.kind-project-hero {
+  min-height: calc(100svh - 60px);
+  padding: 36px clamp(22px, 6vw, 90px) 50px;
+}
+
+.kind-project-hero-meta {
+  border-bottom: 1px solid rgba(39, 34, 44, .2);
+  display: flex;
+  font-size: .71rem;
+  justify-content: space-between;
+  letter-spacing: .11em;
+  padding-bottom: 16px;
+  text-transform: uppercase;
+}
+
+.kind-project-hero-grid {
+  align-items: end;
+  display: grid;
+  gap: 45px;
+  grid-template-columns: minmax(0, 1.4fr) minmax(250px, .6fr);
+  margin: clamp(110px, 16vh, 190px) auto 0;
+  max-width: 1360px;
+}
+
+.kind-project-eyebrow,
+.kind-project-section-label {
+  color: var(--kind-green);
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .16em;
+  margin: 0 0 25px;
+  text-transform: uppercase;
+}
+
+.kind-project-hero h1 {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(4.8rem, 11vw, 11.5rem);
+  font-weight: 520;
+  letter-spacing: -.09em;
+  line-height: .79;
+  margin: 0;
+  max-width: 1060px;
+}
+
+.kind-project-lede {
+  font-size: clamp(1rem, 1.5vw, 1.3rem);
+  line-height: 1.7;
+  margin: 0 0 8px;
+  max-width: 450px;
+}
+
+.kind-project-scroll {
+  align-items: center;
+  border-bottom: 1px solid currentColor;
+  display: inline-flex;
+  font-size: .72rem;
+  gap: 11px;
+  letter-spacing: .1em;
+  margin-top: 13vh;
+  padding-bottom: 7px;
+  text-transform: uppercase;
+}
+
+.kind-project-scroll svg { animation: kind-scroll-cue 1.6s ease-in-out infinite; }
+
+.kind-project-overview {
+  border-bottom: 1px solid rgba(39, 34, 44, .2);
+  border-top: 1px solid rgba(39, 34, 44, .2);
+  display: grid;
+  gap: 40px;
+  grid-template-columns: 1fr 2fr 1fr;
+  margin: 0 clamp(22px, 6vw, 90px);
+  padding: 78px 0 88px;
+}
+
+.kind-project-overview h2,
+.kind-project-chapter-copy h2 {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: clamp(2.45rem, 5.2vw, 5.8rem);
+  font-weight: 520;
+  letter-spacing: -.065em;
+  line-height: .9;
+  margin: 0 0 25px;
+}
+
+.kind-project-overview > div > p,
+.kind-project-chapter-copy > p:last-child {
+  color: rgba(39, 34, 44, .68);
+  font-size: 1rem;
+  line-height: 1.75;
+  margin: 0;
+  max-width: 540px;
+}
+
+.kind-project-overview dl {
+  display: grid;
+  gap: 24px;
+  margin: 0;
+}
+
+.kind-project-overview dl > div { border-top: 1px solid rgba(39, 34, 44, .18); padding-top: 11px; }
+.kind-project-overview dt { color: var(--kind-purple); font-size: .68rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.kind-project-overview dd { font-size: .88rem; line-height: 1.5; margin: 8px 0 0; }
+
+.kind-project-chapters {
+  display: grid;
+  gap: clamp(140px, 22vw, 320px);
+  margin: 0 auto;
+  max-width: 1440px;
+  padding: clamp(140px, 18vw, 260px) clamp(22px, 6vw, 90px);
+}
+
+.kind-project-chapter {
+  align-items: center;
+  display: grid;
+  gap: clamp(35px, 8vw, 150px);
+  grid-template-columns: minmax(260px, 1.05fr) minmax(0, .95fr);
+}
+
+.kind-project-chapter.is-reversed { grid-template-columns: minmax(0, .95fr) minmax(260px, 1.05fr); }
+.kind-project-chapter.is-reversed .kind-project-art-wrap { grid-column: 2; grid-row: 1; }
+.kind-project-chapter.is-reversed .kind-project-chapter-copy { grid-column: 1; grid-row: 1; }
+
+.kind-project-art-wrap {
+  aspect-ratio: 1.12;
+  background: color-mix(in srgb, var(--kind-green) 17%, var(--kind-paper));
+  border-radius: 48% 52% 45% 55% / 42% 38% 62% 58%;
+  min-height: 390px;
+  overflow: hidden;
+  padding: clamp(18px, 4vw, 45px);
+  position: relative;
+}
+
+.kind-project-chapter:nth-child(2) .kind-project-art-wrap { background: color-mix(in srgb, var(--kind-coral) 18%, var(--kind-paper)); border-radius: 50% 50% 42% 58% / 55% 44% 56% 45%; }
+.kind-project-chapter:nth-child(3) .kind-project-art-wrap { background: color-mix(in srgb, var(--kind-yellow) 28%, var(--kind-paper)); border-radius: 45% 55% 56% 44% / 46% 60% 40% 54%; }
+
+.kind-artwork { display: block; height: 100%; width: 100%; }
+.kind-project-art-note { bottom: 25px; color: rgba(39, 34, 44, .56); font-size: .64rem; font-weight: 800; letter-spacing: .12em; position: absolute; right: 30px; text-transform: uppercase; }
+.kind-project-chapter-copy { max-width: 560px; }
+.kind-project-chapter-copy h2 { font-size: clamp(2.7rem, 5.5vw, 6.4rem); }
+
+.kind-project-footer {
+  border-top: 1px solid rgba(39, 34, 44, .24);
+  display: flex;
+  gap: 50px;
+  justify-content: space-between;
+  margin: 0 clamp(22px, 6vw, 90px);
+  padding: 35px 0 110px;
+}
+
+.kind-project-back,
+.kind-project-next { align-items: center; display: flex; gap: 9px; font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.kind-project-next { align-items: end; gap: 18px; text-align: right; }
+.kind-project-next span { color: var(--kind-purple); font-size: .66rem; }
+.kind-project-next strong { font-family: var(--font-display), Georgia, serif; font-size: clamp(1.5rem, 3vw, 3.2rem); font-weight: 520; letter-spacing: -.05em; line-height: .9; max-width: 320px; text-transform: none; }
+.kind-project-next svg { transition: transform 200ms ease; }
+.kind-project-next:hover svg { transform: translate(4px, -4px); }
+
+@keyframes kind-scroll-cue { 0%, 100% { transform: translateY(-2px); } 50% { transform: translateY(4px); } }
+
+@media (max-width: 860px) {
+  .kind-project-hero-grid,
+  .kind-project-overview,
+  .kind-project-chapter,
+  .kind-project-chapter.is-reversed { grid-template-columns: 1fr; }
+  .kind-project-hero-grid { margin-top: 90px; }
+  .kind-project-lede { margin-top: 30px; }
+  .kind-project-overview { gap: 55px; }
+  .kind-project-overview dl { grid-template-columns: repeat(3, 1fr); }
+  .kind-project-chapter.is-reversed .kind-project-art-wrap,
+  .kind-project-chapter.is-reversed .kind-project-chapter-copy { grid-column: 1; grid-row: auto; }
+  .kind-project-chapter.is-reversed .kind-project-art-wrap { grid-row: 1; }
+  .kind-project-chapter-copy { max-width: 620px; }
+}
+
+@media (max-width: 600px) {
+  .kind-project-nav { font-size: .61rem; padding-inline: 17px; }
+  .kind-project-brand { display: none; }
+  .kind-project-nav > div { margin-right: auto; }
+  .kind-project-hero { min-height: calc(100svh - 53px); padding: 22px 18px 30px; }
+  .kind-project-hero-meta { font-size: .6rem; }
+  .kind-project-hero-meta span:last-child { text-align: right; }
+  .kind-project-hero-grid { margin-top: 110px; }
+  .kind-project-hero h1 { font-size: clamp(4.2rem, 18vw, 6.5rem); }
+  .kind-project-lede { font-size: .98rem; }
+  .kind-project-scroll { margin-top: 12vh; }
+  .kind-project-overview { margin-inline: 18px; padding: 58px 0 64px; }
+  .kind-project-overview dl { grid-template-columns: 1fr; }
+  .kind-project-chapters { gap: 130px; padding: 120px 18px 170px; }
+  .kind-project-art-wrap { min-height: 300px; }
+  .kind-project-footer { align-items: start; flex-direction: column; margin-inline: 18px; padding-bottom: 75px; }
+  .kind-project-next { align-self: end; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kind-project-scroll svg { animation: none; }
+  .kind-project-ribbons { opacity: .5; }
+}
