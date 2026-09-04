@@ -1096,7 +1096,7 @@ a:focus-visible {
 .teaching-book-stage { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: 100%; padding: clamp(44px, 7vh, 82px) clamp(18px, 4vw, 64px) clamp(34px, 5vh, 62px); position: relative; }
 .teaching-book-close { align-items: center; background: rgba(255,255,253,.94); border: 1px solid rgba(44,42,37,.24); border-radius: 50%; color: #302d28; cursor: pointer; display: flex; font-size: 22px; height: 38px; justify-content: center; line-height: 1; padding: 0 0 3px; position: absolute; right: clamp(18px, 4vw, 64px); top: clamp(18px, 4vh, 38px); width: 38px; z-index: 6; }
 .teaching-book-close:hover { background: #fff; transform: scale(1.05) rotate(4deg); }
-.teaching-book { animation: teaching-book-open 620ms cubic-bezier(.2,.8,.2,1) both; filter: drop-shadow(0 30px 36px rgba(38,36,31,.24)); perspective: 1300px; position: relative; width: min(100%, 1060px); aspect-ratio: 3 / 2; }
+.teaching-book { animation: teaching-book-open 620ms cubic-bezier(.2,.8,.2,1) both; filter: drop-shadow(0 8px 10px rgba(38,36,31,.2)) drop-shadow(0 28px 30px rgba(38,36,31,.13)); perspective: 1300px; position: relative; width: min(100%, 1060px); aspect-ratio: 3 / 2; }
 .teaching-book-art { filter: saturate(.76) brightness(1.035) contrast(.96); height: 100%; inset: 0; object-fit: contain; pointer-events: none; position: absolute; width: 100%; z-index: 0; }
 .teaching-book-cover { display: none; }
 .teaching-book-spread { border-radius: 6px; display: grid; grid-template-columns: 1fr 2px 1fr; inset: 8% 13.3% 10%; overflow: hidden; position: absolute; transform-style: preserve-3d; z-index: 1; }

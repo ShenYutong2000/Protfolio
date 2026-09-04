@@ -1055,7 +1055,7 @@ function TeachingBookDialog({
         <button ref={closeButtonRef} className="teaching-book-close" type="button" onClick={onClose} aria-label="Close book">×</button>
         <div className={`teaching-book ${flipping ? "is-flipping" : ""} is-flipping-${flipDirection}`}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img className="teaching-book-art" src="/assets/teaching-journal.png" alt="" aria-hidden="true" />
+          <img className="teaching-book-art" src="/assets/teaching-journal-clean.png" alt="" aria-hidden="true" />
           <div className={`teaching-book-spread${mobileMode ? " teaching-book-spread--single" : ""}`}>
             {mobileMode ? (
               renderPage(bookPages[spreadStart], "right", spreadStart, "teaching-book-page--single")
