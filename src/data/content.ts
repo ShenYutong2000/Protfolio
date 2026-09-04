@@ -139,22 +139,23 @@ export const projects = [
 
 export const education = [
   {
-    period: "2024 — Present",
-    institution: "University Name",
-    degree: "Degree in Your Major",
-    summary:
-      "Add a concise summary of this education, its focus, and the work it shaped.",
-    details:
-      "Add your concentration, key courses, academic honors, student organizations, and relevant achievements.",
+    period: "August 2026 — Present",
+    institution: "Harvard University",
+    location: "Cambridge, MA",
+    degree: "Ed.M, Learning Design, Innovation, and Technology",
+    summary: "Ed.M. in Learning Design, Innovation, and Technology.",
+    details: "Cambridge, MA.",
+    focus: ["Learning design", "Innovation", "Technology"],
   },
   {
-    period: "2020 — 2024",
-    institution: "Previous University",
-    degree: "Degree in Your Major",
-    summary:
-      "Describe the part of this education that best supports the story you want your portfolio to tell.",
+    period: "September 2019 — May 2023",
+    institution: "Princeton University",
+    location: "Princeton, NJ",
+    degree: "BSE, Computer Science",
+    summary: "BSE in Computer Science.",
     details:
-      "Describe the part of this education that best supports the story you want your portfolio to tell.",
+      "GPA: 3.71/4.00 · Relevant coursework: Natural Language Processing; Reasoning about Computation; Economics and Computing; Innovating Across Technology, Business, and Marketplaces; Foundations of Psychological Thought.",
+    focus: ["Computer science", "Natural language processing", "Computing & economics"],
   },
 ];
 
@@ -202,29 +203,54 @@ export const research = [
   },
 ] satisfies ResearchItem[];
 
-export const experience = [
+type ExperienceEntry = {
+  kind: "work" | "education";
+  period: string;
+  role: string;
+  company: string;
+  achievements: string[];
+  tools: string[];
+};
+
+const workExperience = [
   {
-    period: "2025 — Present",
-    role: "Your Current Role",
-    company: "Company or Organization · City / Remote",
+    kind: "work" as const,
+    period: "July 2025 — Present",
+    role: "STEM Teaching Fellow",
+    company: "United World College · Changshu, China",
     achievements: [
-      "Describe a contribution and why it mattered.",
-      "Add a measurable product, research, or business result.",
-      "Highlight a collaboration or technical challenge you led.",
+      "Designed and implemented a novel physics curriculum grounded in Conceptual-Based Inquiry, strengthening the school's IB Diploma preparatory program for 150+ Grade-10 students.",
+      "Partnered with the school principal and board to apply predictive AI analytics to student performance data, translating insights into personalized learning strategies and data-informed instructional improvements.",
+      "Mentored 20+ students in physics and computer science through hands-on supervision of a physics experiment club, cultivating academic excellence and research interest.",
     ],
-    tools: ["Research", "Design", "Development"],
+    tools: ["Physics curriculum", "Predictive AI", "Student mentoring"],
   },
   {
-    period: "2024 — 2025",
-    role: "Previous Role",
-    company: "Company or Organization · City / Remote",
+    kind: "work" as const,
+    period: "July 2023 — June 2025",
+    role: "Software Engineer — Azure Monitoring",
+    company: "Microsoft · Redmond, WA",
     achievements: [
-      "Focus on outcomes instead of listing routine responsibilities.",
-      "Connect this experience to the direction of your portfolio.",
+      "Engineered KeplerWorkspace, an AI-powered automation tool that proactively resolves Azure customer incidents through guided troubleshooting, reducing on-call workload and accelerating live-site remediation for 200+ global Azure Monitoring engineers.",
     ],
-    tools: ["Strategy", "Analysis", "Communication"],
+    tools: ["AI automation", "Azure Monitoring", "Incident response"],
   },
 ];
+
+const educationExperience = education.map((item) => ({
+  kind: "education" as const,
+  period: item.period,
+  role: item.degree,
+  company: `${item.institution} · ${item.location}`,
+  achievements: [item.summary, item.details],
+  tools: item.focus,
+}));
+
+export const experience = [
+  educationExperience[0],
+  ...workExperience,
+  educationExperience[1],
+] satisfies ExperienceEntry[];
 
 export const portfolioItems = [
   {

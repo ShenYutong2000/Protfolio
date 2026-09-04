@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { DetailPage } from "@/components/DetailPage";
+import { KindProjectPage } from "@/components/projects/KindProjectPage";
 import { getProject, projects } from "@/data/content";
 
 type ProjectPageProps = {
@@ -27,38 +27,7 @@ export default async function ProjectDetailPage({ params }: ProjectPageProps) {
     notFound();
   }
 
-  return (
-    <DetailPage
-      backHref="/projects"
-      backLabel="All projects"
-      type="Project case study"
-      year={project.year}
-      title={project.title}
-      summary={project.summary}
-      facts={[
-        { label: "Role", value: project.role },
-        { label: "Duration", value: project.duration },
-        { label: "Focus", value: project.meta },
-      ]}
-      tags={project.tags}
-      sections={[
-        {
-          label: "Challenge",
-          title: "The question behind the work",
-          body: project.challenge,
-        },
-        {
-          label: "Approach",
-          title: "From research to a working direction",
-          body: project.approach,
-        },
-        {
-          label: "Outcome",
-          title: "What the project made possible",
-          body: project.outcome,
-        },
-      ]}
-      links={project.links}
-    />
-  );
+  const projectIndex = projects.findIndex((item) => item.slug === project.slug);
+  const nextProject = projects[(projectIndex + 1) % projects.length] ?? projects[0];
+  return <KindProjectPage project={project} nextProject={nextProject} />;
 }

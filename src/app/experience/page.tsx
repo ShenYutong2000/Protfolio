@@ -10,13 +10,16 @@ export default function ExperiencePage() {
     <SectionShell
       number="05"
       eyebrow="The briefcase by the desk"
-      title="Work with purpose."
-      introduction="Professional experiences where I learned, collaborated, and turned ideas into outcomes."
+      title="Work and learning with purpose."
+      introduction="Professional and academic chapters where I learned, collaborated, and turned ideas into outcomes."
     >
       <div className="experience-list">
         {experience.map((item) => (
           <article className="experience-card" key={item.period}>
-            <p className="timeline-period">{item.period}</p>
+            <div className="experience-card-meta">
+              <p className="experience-card-kind">{item.kind === "education" ? "Education" : "Work experience"}</p>
+              <p className="timeline-period">{item.period}</p>
+            </div>
             <div>
               <h2>{item.role}</h2>
               <h3>{item.company}</h3>

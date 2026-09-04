@@ -4,11 +4,11 @@ import { addAfterEffect, useThree } from "@react-three/fiber";
 import { useGLTF, useTexture } from "@react-three/drei";
 import { StudyAssetBoundary } from "./StudyModel";
 import { useStudyLoading, useStudyLoadingSnapshot } from "./StudyLoading";
-import { assetRequestUrl, loadingSummary, type AssetEntry, type StudyLoadingStore } from "./studyLoadingState";
+import { assetRequestUrl, type AssetEntry, type StudyLoadingStore } from "./studyLoadingState";
 import { studyModelLoader } from "./studyLoaders";
-export function preloadStudyAssets(store: StudyLoadingStore) {
+export function preloadStudyAssets(store: StudyLoadingStore, includeOptional = true) {
     Object.values(store.getSnapshot().entries).forEach((entry) => {
-        if (entry.status !== "pending")
+        if (entry.status !== "pending" || (!includeOptional && !entry.required))
             return;
         if (entry.kind === "model")
             useGLTF.preload(assetRequestUrl(entry), false, true, studyModelLoader(store).configure);
@@ -49,7 +49,8 @@ export function StudyTexturePreparation() {
 export function StudyScenePreparation() {
     const store = useStudyLoading();
     const { run, shellReady, ...rest } = useStudyLoadingSnapshot();
-    const settled = loadingSummary({ ...rest, run, shellReady }).settled;
+    const settled = Object.values(rest.entries).length > 0
+        && Object.values(rest.entries).every((entry) => !entry.required || entry.status === "ready");
     const { gl, scene, camera, invalidate, setEvents, get } = useThree();
     useEffect(() => { setEvents({ enabled: rest.phase === "ready" }); }, [setEvents, rest.phase]);
     useEffect(() => {

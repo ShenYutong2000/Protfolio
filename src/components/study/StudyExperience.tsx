@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { Component, useState, type ReactNode } from "react";
 import { StudyLoadingProvider, StudyLoadingScreen, useStudyLoading, useStudyLoadingSnapshot } from "./StudyLoading";
 const Scene = dynamic(() => import("./StudyScene").then((module) => module.StudyScene), { ssr: false });
+const WEBGL_RENDERER_REVISION = "edge-modern-renderer-v5";
 class SceneBoundary extends Component<{
     children: ReactNode;
     onError: (error: Error) => void;
@@ -20,7 +21,7 @@ function Experience() {
     const [crashed, setCrashed] = useState(false);
     async function retry() {
         // A failed JS chunk or lost WebGL context needs a fresh renderer, not an asset retry.
-        if (crashed || snapshot.phase === "module") {
+        if (crashed || snapshot.phase === "module" || snapshot.phase === "unavailable") {
             window.location.reload();
             return;
         }
@@ -37,5 +38,7 @@ function Experience() {
   </>;
 }
 export function StudyExperience() {
-    return <StudyLoadingProvider><Experience /></StudyLoadingProvider>;
+    // Changing renderer compatibility rules must also reset an unavailable
+    // loading store during Fast Refresh in local preview.
+    return <StudyLoadingProvider key={WEBGL_RENDERER_REVISION}><Experience /></StudyLoadingProvider>;
 }

@@ -17,11 +17,17 @@ function syncPortfolioRoute(path: string) {
 export function PortfolioTemplate({ initialPath }: { initialPath: string }) {
   const router = useRouter();
   const frameRef = useRef<HTMLIFrameElement>(null);
-  const [source] = useState(`/portfolio-template/index.html?embed=1#${initialPath}`);
+  const [resolvedPath] = useState(() => {
+    if (typeof window === "undefined") return initialPath;
+    return new URLSearchParams(window.location.search).get("view") === "index"
+      ? "/index"
+      : initialPath;
+  });
+  const [source] = useState(`/portfolio-template/index.html?embed=1#${resolvedPath}`);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    syncPortfolioRoute(initialPath);
+    syncPortfolioRoute(resolvedPath);
     function onMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin || event.source !== frameRef.current?.contentWindow) return;
       if (event.data?.type === "portfolio:return") router.push("/");
@@ -33,7 +39,7 @@ export function PortfolioTemplate({ initialPath }: { initialPath: string }) {
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [router, initialPath]);
+  }, [router, resolvedPath]);
 
   return (
     <main className="portfolio-template-host" aria-label="Portfolio">
