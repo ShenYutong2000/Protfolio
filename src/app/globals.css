@@ -3898,7 +3898,8 @@ body:has(.projects-showcase) .site-footer {
   .projects-scroll-cue svg { animation: none; }
 }
 
-/* Built Kindly-inspired case study pages */
+/* Legacy project-page styles are disabled below. */
+/*
 body:has(.kind-project-page) { background: #fffbed; color: #27222c; }
 body:has(.kind-project-page) .site-header,
 body:has(.kind-project-page) .site-footer { display: none; }
@@ -4043,4 +4044,59 @@ body:has(.kind-project-page) .site-footer { display: none; }
   .kind-project-scroll svg { animation: none; }
   .kind-project-hero-copy, .kind-project-hero-scene, .kind-project-manifesto, .kind-project-chapter { opacity: 1; transform: none; transition: none; }
   .kind-scene-objects, .kind-scene-orb, .kind-scene-node { transition: none; }
+}
+*/
+
+/* CodePen-style pinned image reveal project pages */
+body:has(.project-template-page) { background: #f9ffe7; color: #121212; }
+body:has(.project-template-page) .site-header,
+body:has(.project-template-page) .site-footer { display: none; }
+
+.project-template-page {
+  color: #121212;
+  font-family: var(--font-project-template), Arial, sans-serif;
+  min-height: 100vh;
+  transition: background-color 300ms ease;
+}
+
+.project-template-container { max-width: 1440px; padding: 2rem; margin: 0 auto; }
+.project-template-spacer { height: 30vh; width: 100%; }
+.project-template-arch { display: flex; gap: 60px; justify-content: space-between; max-width: 1100px; margin-inline: auto; }
+.project-template-left { display: flex; flex-direction: column; min-width: 300px; }
+.project-template-panel { display: flex; flex-direction: column; justify-content: center; max-width: 356px; min-height: 100vh; }
+.project-template-content { width: 100%; }
+.project-template-index { font-size: .78rem; font-weight: 700; letter-spacing: .12em; margin: 0 0 1.5rem; text-transform: uppercase; }
+.project-template-panel h1 { font-family: var(--font-project-template), Arial, sans-serif; font-size: clamp(2.6rem, 4.2vw, 4.2rem); font-weight: 800; letter-spacing: -.055em; line-height: .98; margin: 0; }
+.project-template-description { color: rgba(18,18,18,.8); font-size: 1.125rem; letter-spacing: -.02em; line-height: 1.4; margin: .55rem 0 1.75rem; }
+.project-template-link { align-items: center; border-radius: 40px; color: inherit; display: inline-flex; gap: 7px; padding: 14px 18px; text-decoration: none; transition: transform 180ms ease, filter 180ms ease; }
+.project-template-link:hover { filter: brightness(.96); transform: translateY(-2px); }
+.project-template-link:focus-visible { outline: 3px solid #121212; outline-offset: 4px; }
+.project-template-meta { display: flex; flex-direction: column; gap: 5px; margin-top: 26px; color: rgba(18,18,18,.62); font-size: .8rem; line-height: 1.35; }
+.project-template-right { flex-shrink: 1; height: 100vh; max-width: 540px; position: relative; width: 100%; }
+.project-template-image { background-position: center; background-repeat: no-repeat; background-size: 200% 200%; border-radius: 16px; height: 400px; left: 0; overflow: hidden; position: absolute; top: 50%; transform: translateY(-50%); width: 100%; }
+
+@media (max-width: 900px) {
+  .project-template-arch { gap: 30px; }
+}
+
+@media (max-width: 768px) {
+  .project-template-container { padding: 10px; }
+  .project-template-arch { flex-direction: column; gap: 20px; }
+  .project-template-left, .project-template-right { display: contents; }
+  .project-template-panel { max-width: none; min-height: auto; padding: 20px 0; }
+  .project-template-panel h1 { font-size: clamp(2.6rem, 12vw, 4rem); }
+  .project-template-description { font-size: 1.05rem; }
+  .project-template-image { height: 360px; margin-bottom: 20px; position: static; transform: none; width: 100%; }
+  .project-template-spacer { height: 18vh; }
+}
+
+@media (max-width: 560px) {
+  .project-template-arch { gap: 12px; }
+  .project-template-image { border-radius: 10px; height: 280px; }
+  .project-template-panel { padding: 16px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .project-template-page { transition: none; }
+  .project-template-link { transition: none; }
 }
