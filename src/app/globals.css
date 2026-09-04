@@ -1091,34 +1091,34 @@ a:focus-visible {
   to { opacity: 0; transform: translateY(12px) rotate(-1.2deg) scale(.96); visibility: hidden; }
 }
 
-.teaching-book-dialog { border: 0; height: 100dvh; margin: 0; max-height: none; max-width: none; outline: none; padding: 0; position: fixed; width: 100%; background: rgba(252, 250, 244, .96); color: var(--ink); overflow: auto; }
-.teaching-book-dialog::backdrop { background: rgba(249, 247, 239, .88); backdrop-filter: blur(8px); }
+.teaching-book-dialog { border: 0; height: 100dvh; margin: 0; max-height: none; max-width: none; outline: none; padding: 0; position: fixed; width: 100%; background: rgba(248, 248, 245, .97); color: var(--ink); overflow: auto; }
+.teaching-book-dialog::backdrop { background: rgba(255, 255, 253, .92); backdrop-filter: blur(8px); }
 .teaching-book-stage { align-items: center; display: flex; flex-direction: column; justify-content: center; min-height: 100%; padding: clamp(44px, 7vh, 82px) clamp(18px, 4vw, 64px) clamp(34px, 5vh, 62px); position: relative; }
-.teaching-book-close { align-items: center; background: rgba(255,255,255,.88); border: 1px solid rgba(55,43,33,.2); border-radius: 50%; color: #42352e; cursor: pointer; display: flex; font-size: 22px; height: 38px; justify-content: center; line-height: 1; padding: 0 0 3px; position: absolute; right: clamp(18px, 4vw, 64px); top: clamp(18px, 4vh, 38px); width: 38px; z-index: 6; }
+.teaching-book-close { align-items: center; background: rgba(255,255,253,.94); border: 1px solid rgba(44,42,37,.24); border-radius: 50%; color: #302d28; cursor: pointer; display: flex; font-size: 22px; height: 38px; justify-content: center; line-height: 1; padding: 0 0 3px; position: absolute; right: clamp(18px, 4vw, 64px); top: clamp(18px, 4vh, 38px); width: 38px; z-index: 6; }
 .teaching-book-close:hover { background: #fff; transform: scale(1.05) rotate(4deg); }
-.teaching-book { animation: teaching-book-open 620ms cubic-bezier(.2,.8,.2,1) both; filter: drop-shadow(0 30px 36px rgba(57,42,29,.24)); perspective: 1300px; position: relative; width: min(100%, 1060px); aspect-ratio: 3 / 2; }
-.teaching-book-art { height: 100%; inset: 0; object-fit: contain; pointer-events: none; position: absolute; width: 100%; z-index: 0; }
+.teaching-book { animation: teaching-book-open 620ms cubic-bezier(.2,.8,.2,1) both; filter: drop-shadow(0 30px 36px rgba(38,36,31,.24)); perspective: 1300px; position: relative; width: min(100%, 1060px); aspect-ratio: 3 / 2; }
+.teaching-book-art { filter: saturate(.76) brightness(1.035) contrast(.96); height: 100%; inset: 0; object-fit: contain; pointer-events: none; position: absolute; width: 100%; z-index: 0; }
 .teaching-book-cover { display: none; }
 .teaching-book-spread { border-radius: 6px; display: grid; grid-template-columns: 1fr 2px 1fr; inset: 8% 13.3% 10%; overflow: hidden; position: absolute; transform-style: preserve-3d; z-index: 1; }
-.teaching-book-spread::before { background: linear-gradient(90deg, rgba(67,45,33,.13), transparent 42%, rgba(67,45,33,.18)); content: ""; inset: 0; pointer-events: none; position: absolute; z-index: 2; }
-.teaching-book-page { -webkit-backface-visibility: visible; backface-visibility: visible; background: rgba(253,248,234,.72); background-image: repeating-linear-gradient(0deg, transparent 0, transparent 29px, rgba(149,116,84,.07) 30px); color: #493a31; contain: paint; display: flex; flex-direction: column; min-width: 0; overflow: auto; padding: clamp(24px,4vw,56px) clamp(20px,4.6vw,62px); position: relative; scrollbar-width: thin; transform-style: preserve-3d; will-change: transform; }
-.teaching-book-page::after { backface-visibility: visible; background: linear-gradient(105deg, rgba(239,226,201,.82), rgba(253,248,234,.76) 34%, rgba(231,214,185,.78)); content: ""; inset: 0; pointer-events: none; position: absolute; transform: rotateY(180deg); z-index: 0; }
+.teaching-book-spread::before { background: linear-gradient(90deg, rgba(52,50,45,.12), transparent 42%, rgba(52,50,45,.16)); content: ""; inset: 0; pointer-events: none; position: absolute; z-index: 2; }
+.teaching-book-page { -webkit-backface-visibility: visible; backface-visibility: visible; background: rgba(247,246,238,.72); background-image: repeating-linear-gradient(0deg, transparent 0, transparent 29px, rgba(116,111,98,.065) 30px); color: #4a4740; contain: paint; display: flex; flex-direction: column; min-width: 0; overflow: auto; padding: clamp(24px,4vw,56px) clamp(20px,4.6vw,62px); position: relative; scrollbar-width: thin; transform-style: preserve-3d; will-change: transform; }
+.teaching-book-page::after { backface-visibility: visible; background: linear-gradient(105deg, rgba(229,228,218,.78), rgba(247,246,238,.76) 34%, rgba(220,218,205,.72)); content: ""; inset: 0; pointer-events: none; position: absolute; transform: rotateY(180deg); z-index: 0; }
 .teaching-book-page > * { position: relative; z-index: 1; }
 .teaching-book-page--left { border-radius: 7px 0 0 7px; grid-column: 1; }
 .teaching-book-page--right { border-radius: 0 7px 7px 0; grid-column: 3; }
 .teaching-book-spread--single { display: block; inset: 8% 13.3% 10%; }
 .teaching-book-spread--single .teaching-book-page--single { border-radius: 7px; height: 100%; width: 100%; }
-.teaching-book-page-number { color: #9d7c68; font-size: 12px; letter-spacing: .16em; }
-.teaching-book-period { color: #9f624f; font-family: var(--font-hand), cursive; font-size: clamp(20px,2.2vw,28px); line-height: 1; margin: 8px 0 20px; }
-.teaching-book-page h2 { color: #48352b; font-family: var(--font-hand), cursive; font-size: clamp(32px,4.2vw,54px); font-weight: 600; letter-spacing: -.02em; line-height: .95; margin: 0; overflow-wrap: anywhere; }
-.teaching-book-page h3 { color: #5e5048; font-family: var(--font-display), Georgia, serif; font-size: clamp(12px,1.2vw,16px); font-weight: 650; letter-spacing: .05em; line-height: 1.5; margin: 14px 0 0; text-transform: uppercase; }
-.teaching-book-summary { color: #554940; font-size: clamp(14px,1.35vw,17px); line-height: 1.65; margin: 20px 0 24px; max-width: 30em; }
-.teaching-book-page a { align-self: flex-start; border-bottom: 1px solid #a96a51; color: #8e513d; font-size: 12px; font-weight: 800; letter-spacing: .13em; padding-bottom: 5px; text-transform: uppercase; }
-.teaching-book-page a:hover { color: #713d48; }
+.teaching-book-page-number { color: #7d786e; font-size: 12px; letter-spacing: .16em; }
+.teaching-book-period { color: #625d54; font-family: var(--font-hand), cursive; font-size: clamp(20px,2.2vw,28px); line-height: 1; margin: 8px 0 20px; }
+.teaching-book-page h2 { color: #282621; font-family: var(--font-hand), cursive; font-size: clamp(32px,4.2vw,54px); font-weight: 600; letter-spacing: -.02em; line-height: .95; margin: 0; overflow-wrap: anywhere; }
+.teaching-book-page h3 { color: #57534b; font-family: var(--font-display), Georgia, serif; font-size: clamp(12px,1.2vw,16px); font-weight: 650; letter-spacing: .05em; line-height: 1.5; margin: 14px 0 0; text-transform: uppercase; }
+.teaching-book-summary { color: #504c44; font-size: clamp(14px,1.35vw,17px); line-height: 1.65; margin: 20px 0 24px; max-width: 30em; }
+.teaching-book-page a { align-self: flex-start; border-bottom: 1px solid #776f61; color: #625b50; font-size: 12px; font-weight: 800; letter-spacing: .13em; padding-bottom: 5px; text-transform: uppercase; }
+.teaching-book-page a:hover { color: #312e29; }
 .teaching-book-page--empty { align-items: center; justify-content: center; text-align: center; }
 .teaching-book-page--empty p { color: #8b9994; font-family: var(--font-display), Georgia, serif; font-size: 22px; }
 .teaching-book-page--empty a { align-self: center; }
-.teaching-book-spine { background: linear-gradient(90deg, rgba(49,39,33,.2), rgba(255,255,255,.76) 45%, rgba(49,39,33,.16)); box-shadow: 0 0 9px rgba(59,43,33,.18); grid-column: 2; position: relative; z-index: 3; }
+.teaching-book-spine { background: linear-gradient(90deg, rgba(45,43,38,.2), rgba(255,255,250,.78) 45%, rgba(45,43,38,.15)); box-shadow: 0 0 9px rgba(45,43,38,.16); grid-column: 2; position: relative; z-index: 3; }
 .teaching-book-page--incoming { bottom: 0; grid-column: 1 / -1; position: absolute; top: 0; z-index: 1; }
 .teaching-book-page--incoming.teaching-book-page--left { left: 0; right: calc(50% + 1px); }
 .teaching-book-page--incoming.teaching-book-page--right { left: calc(50% + 1px); right: 0; }
@@ -1134,8 +1134,8 @@ a:focus-visible {
 @keyframes teaching-page-forward { 0% { transform: translate3d(0,0,0) rotateY(0deg); } 18% { transform: translate3d(0,0,10px) rotateY(-34deg); } 38% { transform: translate3d(0,0,34px) rotateY(-90deg); } 54% { transform: translate3d(0,0,26px) rotateY(-112deg); } 78% { transform: translate3d(0,0,8px) rotateY(-164deg); } 100% { transform: translate3d(0,0,0) rotateY(-180deg); } }
 @keyframes teaching-page-back { 0% { transform: translate3d(0,0,0) rotateY(0deg); } 18% { transform: translate3d(0,0,10px) rotateY(34deg); } 38% { transform: translate3d(0,0,34px) rotateY(90deg); } 54% { transform: translate3d(0,0,26px) rotateY(112deg); } 78% { transform: translate3d(0,0,8px) rotateY(164deg); } 100% { transform: translate3d(0,0,0) rotateY(180deg); } }
 @keyframes teaching-book-open { from { opacity: 0; transform: translateY(12px) scale(.88) rotateX(8deg); } to { opacity: 1; transform: translateY(0) scale(1) rotateX(0); } }
-.teaching-book-controls { align-items: center; color: #735f50; display: flex; font-size: 12px; gap: 18px; justify-content: center; margin-top: 10px; }
-.teaching-book-controls button { background: rgba(255,255,255,.75); border: 1px solid rgba(87,66,51,.24); border-radius: 999px; color: #604b3d; cursor: pointer; font-size: 11px; letter-spacing: .08em; padding: 8px 14px; text-transform: uppercase; }
+.teaching-book-controls { align-items: center; color: #666158; display: flex; font-size: 12px; gap: 18px; justify-content: center; margin-top: 10px; }
+.teaching-book-controls button { background: rgba(255,255,253,.82); border: 1px solid rgba(62,59,52,.24); border-radius: 999px; color: #4d4941; cursor: pointer; font-size: 11px; letter-spacing: .08em; padding: 8px 14px; text-transform: uppercase; }
 .teaching-book-controls button:disabled { cursor: default; opacity: .4; }
 @media (prefers-reduced-motion: reduce) { .teaching-book, .teaching-book.is-flipping.is-flipping-next .teaching-book-flip-leaf--next, .teaching-book.is-flipping.is-flipping-previous .teaching-book-flip-leaf--previous { animation: none; } }
 
