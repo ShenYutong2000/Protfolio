@@ -204,25 +204,24 @@ export const research = [
 
 export const experience = [
   {
-    period: "2025 — Present",
-    role: "Your Current Role",
-    company: "Company or Organization · City / Remote",
+    period: "July 2025 — Present",
+    role: "STEM Teaching Fellow",
+    company: "United World College · Changshu, China",
     achievements: [
-      "Describe a contribution and why it mattered.",
-      "Add a measurable product, research, or business result.",
-      "Highlight a collaboration or technical challenge you led.",
+      "Designed and implemented a novel physics curriculum grounded in Conceptual-Based Inquiry, strengthening the school's IB Diploma preparatory program for 150+ Grade-10 students.",
+      "Partnered with the school principal and board to apply predictive AI analytics to student performance data, translating insights into personalized learning strategies and data-informed instructional improvements.",
+      "Mentored 20+ students in physics and computer science through hands-on supervision of a physics experiment club, cultivating academic excellence and research interest.",
     ],
-    tools: ["Research", "Design", "Development"],
+    tools: ["Physics curriculum", "Predictive AI", "Student mentoring"],
   },
   {
-    period: "2024 — 2025",
-    role: "Previous Role",
-    company: "Company or Organization · City / Remote",
+    period: "July 2023 — June 2025",
+    role: "Software Engineer — Azure Monitoring",
+    company: "Microsoft · Redmond, WA",
     achievements: [
-      "Focus on outcomes instead of listing routine responsibilities.",
-      "Connect this experience to the direction of your portfolio.",
+      "Engineered KeplerWorkspace, an AI-powered automation tool that proactively resolves Azure customer incidents through guided troubleshooting, reducing on-call workload and accelerating live-site remediation for 200+ global Azure Monitoring engineers.",
     ],
-    tools: ["Strategy", "Analysis", "Communication"],
+    tools: ["AI automation", "Azure Monitoring", "Incident response"],
   },
 ];
 
