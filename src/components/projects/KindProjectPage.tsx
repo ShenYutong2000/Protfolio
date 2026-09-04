@@ -71,12 +71,13 @@ function ProjectBoard({ project, panels }: { project: Project; panels: Panel[] }
         smoothWheel: true,
       });
 
+      let frameId = 0;
       const animationFrame = (time: number) => {
         lenis.raf(time);
         ScrollTrigger.update();
-        requestAnimationFrame(animationFrame);
+        frameId = requestAnimationFrame(animationFrame);
       };
-      const frameId = requestAnimationFrame(animationFrame);
+      frameId = requestAnimationFrame(animationFrame);
 
       images.forEach((image, index) => {
         image.style.zIndex = String(images.length - index);
