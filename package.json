@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "This is my personal protfolio",
   "scripts": {
+    "build:portfolio": "npm run build --workspace @portfolio/template",
+    "predev": "npm run build:portfolio",
+    "prebuild": "npm run build:portfolio",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -21,6 +24,7 @@
   "author": "",
   "license": "ISC",
   "private": true,
+  "workspaces": ["vendor/portfolio-template"],
   "bugs": {
     "url": "https://github.com/ShenYutong2000/Protfolio/issues"
   },

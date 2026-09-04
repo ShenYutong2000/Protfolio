@@ -21,6 +21,10 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { education, siteProfile } from "@/data/content";
 import { PhoneGuestbook } from "@/components/study/PhoneGuestbook";
+import { preloadPortfolio } from "@/components/portfolio/preloadPortfolio";
+import { ExperienceCards } from "./ExperienceCards";
+import { ProjectFolders } from "./ProjectFolders";
+import { useLaptopFolderTexture } from "./useLaptopFolderTexture";
 import { StudyModelSlot, StudyAssetBoundary } from "@/components/study/StudyModel";
 import { studyModelConfigs } from "@/components/study/studyModels";
 import { StudyDiagnostics } from "./StudyDiagnostics";
@@ -80,7 +84,7 @@ const LAPTOP_FOCUS_POINT: Point = [
   LAPTOP_SCREEN_CENTER.z,
 ];
 const PORTFOLIO_FOCUS_POINT: Point = [0.055, 1.01, -1.42];
-const EXPERIENCE_FOCUS_POINT: Point = [1.72, -0.42, -1.94];
+const EXPERIENCE_FOCUS_POINT: Point = [1.715, 0.44, -1.94];
 const PHONE_POSITION: Point = [3.08, FLOOR_TOP, -0.18];
 const PHONE_YAW = THREE.MathUtils.degToRad(-45);
 const RESUME_HREF = siteProfile.resumeHref;
@@ -116,47 +120,27 @@ function getIdCardAlignment() {
 getIdCardAlignment();
 type DetailView =
   | "computer"
+  | "experience"
   | "portfolio"
   | null;
 
 const OVERVIEW_TARGET = new THREE.Vector3(0, 1.68, -0.1);
+const WORLD_UP = new THREE.Vector3(0, 1, 0);
 const DRAG_CLICK_THRESHOLD = 6;
 const PAGE_FLIP_MS = 780;
+const BOOK_FOCUS_MS = 160;
+const BOOK_ENTRY_MS = 850;
+const BOOK_REDUCED_MOTION_MS = 160;
 
 type OverviewViewApi = {
   capture: () => void;
   restore: () => void;
   reset: () => void;
 };
-const LAPTOP_SCREEN = { width: 768, height: 480 };
-const LAPTOP_POPUP = {
-  x: 91.5,
-  y: 88.5,
-  width: 585,
-  height: 303,
-};
-const LAPTOP_PROJECT_BUTTONS = {
-  x: 160,
-  y: 258,
-  width: 496,
-  height: 86,
-};
-
-function isLaptopProjectButtonHit(uv: THREE.Vector2 | undefined) {
-  if (!uv) return false;
-  const x = uv.x * LAPTOP_SCREEN.width;
-  const y = (1 - uv.y) * LAPTOP_SCREEN.height;
-  return (
-    x >= LAPTOP_PROJECT_BUTTONS.x &&
-    x <= LAPTOP_PROJECT_BUTTONS.x + LAPTOP_PROJECT_BUTTONS.width &&
-    y >= LAPTOP_PROJECT_BUTTONS.y &&
-    y <= LAPTOP_PROJECT_BUTTONS.y + LAPTOP_PROJECT_BUTTONS.height
-  );
-}
-
 function CameraRig({
   focus,
   entering,
+  bookEntryStage,
   detailView,
   reducedMotion,
   floorLift,
@@ -164,12 +148,16 @@ function CameraRig({
 }: {
   focus: Point | null;
   entering: boolean;
+  bookEntryStage: "idle" | "focus" | "zoom";
   detailView: DetailView;
   reducedMotion: boolean;
   floorLift: number;
   preparing: boolean;
 }) {
   const invalidate = useThree((state) => state.invalidate);
+  const target = useMemo(() => new THREE.Vector3(), []);
+  const destination = useMemo(() => new THREE.Vector3(), []);
+  const desiredUp = useMemo(() => new THREE.Vector3(), []);
   useFrame((state, delta) => {
     // OrbitControls owns the overview camera. This rig only owns a deliberate
     // focus/route transition so the two systems never fight over the camera.
@@ -179,41 +167,32 @@ function CameraRig({
       detailView === "computer"
         ? getLaptopScreenAlignment()
         : null;
-    const target = face
-      ? face.center
-      : focus
-        ? new THREE.Vector3(focus[0], focus[1] + floorLift, focus[2])
-        : OVERVIEW_TARGET;
+    if (face) target.copy(face.center);
+    else if (focus) target.set(focus[0], focus[1] + floorLift, focus[2]);
+    else target.copy(OVERVIEW_TARGET);
     const faceDistance = 5.2;
-    const destination =
-      face
-        ? new THREE.Vector3(
-            target.x + face.normal.x * faceDistance,
-            target.y + face.normal.y * faceDistance,
-            target.z + face.normal.z * faceDistance,
-          )
-        : detailView === "portfolio"
-          ? new THREE.Vector3(
-              target.x + 1.05,
-              target.y + 4.85,
-              target.z + 2.35,
-            )
-          : focus
-            ? new THREE.Vector3(
-                target.x + cameraOffset,
-                target.y + cameraOffset,
-                target.z + cameraOffset,
-              )
-            : new THREE.Vector3(
-                target.x + cameraOffset,
-                target.y + cameraOffset,
-                target.z + cameraOffset,
-              );
+    if (face) {
+      destination.set(
+        target.x + face.normal.x * faceDistance,
+        target.y + face.normal.y * faceDistance,
+        target.z + face.normal.z * faceDistance,
+      );
+    } else if (detailView === "experience") {
+      destination.set(target.x + 4, target.y + 2.8, target.z + 3);
+    } else if (bookEntryStage === "zoom") {
+      destination.set(target.x + 0.9, target.y + 2.25, target.z + 0.9);
+    } else if (bookEntryStage === "focus") {
+      destination.set(target.x + 4.8, target.y + 5.8, target.z + 4.8);
+    } else if (detailView === "portfolio") {
+      destination.set(target.x + 1.05, target.y + 4.85, target.z + 2.35);
+    } else {
+      destination.set(target.x + cameraOffset, target.y + cameraOffset, target.z + cameraOffset);
+    }
 
     if (reducedMotion || preparing) {
       state.camera.position.copy(destination);
     } else {
-      const cameraSpeed = detailView ? 4.6 : entering ? 4.8 : 2.5;
+      const cameraSpeed = bookEntryStage !== "idle" ? 10 : detailView || entering ? 7.2 : 2.5;
       state.camera.position.x = THREE.MathUtils.damp(
         state.camera.position.x,
         destination.x,
@@ -235,8 +214,7 @@ function CameraRig({
     }
 
     const lockViewUp = detailView === "computer";
-    const desiredUp =
-      lockViewUp && face ? face.up : new THREE.Vector3(0, 1, 0);
+    desiredUp.copy(lockViewUp && face ? face.up : WORLD_UP);
     if (reducedMotion || preparing || lockViewUp) {
       state.camera.up.copy(desiredUp);
     } else {
@@ -269,6 +247,12 @@ function CameraRig({
       const focusZoom =
         detailView === "computer"
           ? 12.8
+          : detailView === "experience"
+            ? 3.2
+          : bookEntryStage === "zoom"
+            ? 8.8
+          : bookEntryStage === "focus"
+            ? 2.8
           : detailView === "portfolio"
               ? 8.6
               : focus
@@ -279,7 +263,7 @@ function CameraRig({
         : THREE.MathUtils.damp(
             state.camera.zoom,
             fittedZoom * focusZoom,
-            detailView ? 4.6 : entering ? 4.8 : 3,
+            bookEntryStage !== "idle" ? 10 : detailView ? 7.2 : entering ? 4.8 : 3,
             delta,
           );
       state.camera.updateProjectionMatrix();
@@ -310,8 +294,8 @@ function OverviewControls({
   const size = useThree((state) => state.size);
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const initialized = useRef(false);
-  const savedView = useRef<{ position: THREE.Vector3; target: THREE.Vector3; zoom: number } | null>(null);
-  const homeView = useRef<{ position: THREE.Vector3; target: THREE.Vector3; zoom: number } | null>(null);
+  const savedView = useRef<{ position: THREE.Vector3; target: THREE.Vector3; up: THREE.Vector3; zoom: number } | null>(null);
+  const homeView = useRef<{ position: THREE.Vector3; target: THREE.Vector3; up: THREE.Vector3; zoom: number } | null>(null);
 
   useEffect(() => {
     const controls = controlsRef.current;
@@ -328,15 +312,16 @@ function OverviewControls({
       if (controls.enableDamping) {
         for (let index = 0; index < 60; index += 1) controls.update();
       }
-      return { position: camera.position.clone(), target: controls.target.clone(), zoom: camera.zoom };
+      return { position: camera.position.clone(), target: controls.target.clone(), up: camera.up.clone(), zoom: camera.zoom };
     };
-    homeView.current = capture();
+    if (!homeView.current) homeView.current = capture();
     apiRef.current = {
       capture: () => { savedView.current = capture(); },
       restore: () => {
         const view = savedView.current;
         if (!view) return;
         camera.position.copy(view.position);
+        camera.up.copy(view.up);
         controls.target.copy(view.target);
         camera.zoom = view.zoom;
         controls.update();
@@ -347,6 +332,7 @@ function OverviewControls({
         const view = homeView.current;
         if (!view) return;
         camera.position.copy(view.position);
+        camera.up.copy(view.up);
         controls.target.copy(view.target);
         camera.zoom = view.zoom;
         controls.update();
@@ -784,11 +770,11 @@ function RetroDesktopCraftSet({
   function handleClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
     if (!isIntentionalClick(event)) return;
-    if (focused) {
-      onOpenPortfolio();
-      return;
-    }
-    onInspect();
+    // The book is the portfolio entrance: one click owns the complete
+    // focus-and-enter sequence. Keep the second callback for compatibility
+    // with the existing world wiring and direct keyboard activation.
+    if (focused) onOpenPortfolio();
+    else onInspect();
   }
 
   return (
@@ -816,18 +802,6 @@ function RetroDesktopCraftSet({
         fallback={null}
       />
 
-      {hovered && (
-        <Html
-          center
-          position={[0, 0.92, 0]}
-          style={{ pointerEvents: "none" }}
-        >
-          <div className="computer-hover-prompt">
-            <span>PORTFOLIO · BOOK</span>
-            {focused ? "Click to browse" : "Click to inspect"}
-          </div>
-        </Html>
-      )}
     </group>
   );
 }
@@ -1273,219 +1247,28 @@ function RetroDesk({
   );
 }
 
-function useLaptopScreenTexture() {
-  const texture = useMemo(() => {
-    if (typeof document === "undefined") return null;
-    const canvas = document.createElement("canvas");
-    canvas.width = 768;
-    canvas.height = 480;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-
-    context.fillStyle = "#fffafd";
-    context.fillRect(0, 0, 768, 480);
-
-    context.save();
-    context.translate(390, 270);
-    context.rotate(-0.2);
-    context.globalAlpha = 0.32;
-    context.fillStyle = "#e9a7c1";
-    context.beginPath();
-    context.moveTo(0, 112);
-    context.bezierCurveTo(-230, -20, -120, -180, 0, -72);
-    context.bezierCurveTo(120, -180, 230, -20, 0, 112);
-    context.fill();
-    context.restore();
-
-    context.strokeStyle = "#ef91bd";
-    context.lineWidth = 3;
-    context.strokeRect(1.5, 1.5, 765, 477);
-
-    [
-      [52, 48, "♥", "LIKE"],
-      [132, 48, "★", "STAR"],
-      [52, 122, "▰", "FOLDER"],
-      [132, 122, "▣", "FILE"],
-      [52, 196, "▤", "DISK"],
-      [132, 196, "▣", "CAMERA"],
-      [52, 270, "♡", "BROKEN"],
-      [132, 270, "♢", "RECYCLE"],
-      [52, 344, "▧", "ART"],
-      [132, 344, "●", "GAME"],
-    ].forEach(([x, y, symbol, label], index) => {
-      context.fillStyle = index % 3 === 0 ? "#e76aa3" : "#c883bc";
-      context.font = "700 38px 'Courier New'";
-      context.textAlign = "center";
-      context.fillText(String(symbol), Number(x), Number(y));
-      context.fillStyle = "#cf6a9b";
-      context.font = "700 13px 'Courier New'";
-      context.fillText(String(label), Number(x), Number(y) + 22);
-    });
-
-    context.strokeStyle = "#e980b2";
-    context.lineWidth = 5;
-    context.beginPath();
-    context.moveTo(694, 28);
-    context.lineTo(740, 28);
-    context.lineTo(728, 42);
-    context.lineTo(728, 60);
-    context.lineTo(740, 74);
-    context.lineTo(694, 74);
-    context.lineTo(706, 60);
-    context.lineTo(706, 42);
-    context.closePath();
-    context.stroke();
-
-    const popup = LAPTOP_POPUP;
-    context.fillStyle = "rgba(83, 48, 111, 0.24)";
-    context.fillRect(popup.x + 27, popup.y + 24, popup.width, popup.height);
-    context.fillStyle = "#fff0fa";
-    context.fillRect(popup.x, popup.y, popup.width, popup.height);
-    context.strokeStyle = "#815487";
-    context.lineWidth = 9;
-    context.strokeRect(popup.x, popup.y, popup.width, popup.height);
-    context.fillStyle = "#b678b3";
-    context.fillRect(popup.x + 4.5, popup.y + 4.5, popup.width - 9, 51);
-    context.fillStyle = "#f8d6ec";
-    context.font = "700 24px 'Courier New'";
-    context.textAlign = "left";
-    context.fillText("PROJECTS.EXE", popup.x + 27, popup.y + 39);
-    context.fillStyle = "#f4badb";
-    context.fillRect(popup.x + popup.width - 52.5, popup.y + 12, 37.5, 34.5);
-    context.fillStyle = "#84517f";
-    context.font = "700 27px 'Courier New'";
-    context.textAlign = "center";
-    context.fillText("×", popup.x + popup.width - 33.75, popup.y + 39);
-
-    context.fillStyle = "#c76f9f";
-    context.font = "700 42px 'Courier New'";
-    context.fillText(
-      "OPEN PROJECTS?",
-      popup.x + popup.width / 2,
-      popup.y + 138,
-    );
-    context.fillStyle = "#fff9fd";
-    const buttonLabels = ["YES", "OK", "ALWAYS"];
-    buttonLabels.forEach((label, index) => {
-      const x = popup.x + 81 + index * 168;
-      const y = popup.y + 186;
-      context.fillRect(x, y, 132, 54);
-      context.strokeStyle = "#7f4f86";
-      context.lineWidth = 7;
-      context.strokeRect(x, y, 132, 54);
-      context.fillStyle = "#bf6796";
-      context.font = "700 23px 'Courier New'";
-      context.fillText(label, x + 66, y + 35);
-      context.fillStyle = "#fff9fd";
-    });
-
-    context.fillStyle = "#6f477a";
-    context.beginPath();
-    context.moveTo(406.5, 313.5);
-    context.lineTo(406.5, 379.5);
-    context.lineTo(426, 363);
-    context.lineTo(442.5, 393);
-    context.lineTo(457.5, 384);
-    context.lineTo(441, 354);
-    context.lineTo(468, 349.5);
-    context.closePath();
-    context.fill();
-    context.strokeStyle = "#fff";
-    context.lineWidth = 4;
-    context.stroke();
-
-    context.fillStyle = "#f7e1ef";
-    context.fillRect(0, 431, 768, 49);
-    context.strokeStyle = "#e67fac";
-    context.lineWidth = 3;
-    context.beginPath();
-    context.moveTo(0, 431);
-    context.lineTo(768, 431);
-    context.stroke();
-    context.fillStyle = "#ce709e";
-    context.font = "700 20px 'Courier New'";
-    context.textAlign = "left";
-    context.fillText("12:00 AM", 16, 462);
-
-    for (let index = 0; index < 15; index += 1) {
-      const x = 150 + index * 34;
-      context.fillStyle =
-        index === 13 ? "#73d7a4" : index % 3 === 0 ? "#9eddf1" : "#d4a2dd";
-      context.fillRect(x, 444, 24, 23);
-      context.strokeStyle = "#df6fa5";
-      context.lineWidth = 2;
-      context.strokeRect(x, 444, 24, 23);
-    }
-
-    context.fillStyle = "#fbe8f4";
-    context.fillRect(704, 160, 62, 255);
-    context.strokeStyle = "#e785b2";
-    context.lineWidth = 3;
-    context.strokeRect(704, 160, 62, 255);
-    for (let row = 0; row < 6; row += 1) {
-      context.strokeRect(713, 171 + row * 39, 18, 18);
-      context.strokeRect(739, 171 + row * 39, 18, 18);
-    }
-
-    const nextTexture = new THREE.CanvasTexture(canvas);
-    nextTexture.colorSpace = THREE.SRGBColorSpace;
-    nextTexture.minFilter = THREE.LinearFilter;
-    nextTexture.magFilter = THREE.LinearFilter;
-    nextTexture.anisotropy = 4;
-    return nextTexture;
-  }, []);
-
-  useEffect(() => () => texture?.dispose(), [texture]);
-  return texture;
-}
-
 function RetroLaptop({
   focused,
   onInspect,
-  onOpenProjects,
 }: {
   focused: boolean;
   onInspect: () => void;
-  onOpenProjects: () => void;
 }) {
-  const screenTexture = useLaptopScreenTexture();
+  const screenTexture = useLaptopFolderTexture();
   const [hovered, setHovered] = useState(false);
-  const [projectButtonHovered, setProjectButtonHovered] = useState(false);
 
   useEffect(() => {
-    document.body.style.cursor =
-      focused && projectButtonHovered
-        ? "pointer"
-        : hovered && !focused
-          ? "zoom-in"
-          : "auto";
+    document.body.style.cursor = hovered && !focused ? "pointer" : "auto";
     return () => {
       document.body.style.cursor = "auto";
     };
-  }, [focused, hovered, projectButtonHovered]);
+  }, [focused, hovered]);
 
   function handleLaptopClick(event: ThreeEvent<MouseEvent>) {
     event.stopPropagation();
     if (!isIntentionalClick(event)) return;
     if (!focused) {
       onInspect();
-    }
-  }
-
-  function handleScreenPointer(event: ThreeEvent<PointerEvent>) {
-    event.stopPropagation();
-    setProjectButtonHovered(focused && isLaptopProjectButtonHit(event.uv));
-  }
-
-  function handleScreenClick(event: ThreeEvent<MouseEvent>) {
-    event.stopPropagation();
-    if (!isIntentionalClick(event)) return;
-    if (!focused) {
-      onInspect();
-      return;
-    }
-    if (isLaptopProjectButtonHit(event.uv)) {
-      onOpenProjects();
     }
   }
 
@@ -1501,7 +1284,6 @@ function RetroLaptop({
       }}
       onPointerLeave={() => {
         setHovered(false);
-        setProjectButtonHovered(false);
       }}
     >
       <StudyModelSlot
@@ -1537,9 +1319,7 @@ function RetroLaptop({
             laptopScreenRef.current = mesh;
           }}
           position={[0, 0.48, 0.059]}
-          onClick={handleScreenClick}
-          onPointerMove={handleScreenPointer}
-          onPointerOver={handleScreenPointer}
+          onClick={handleLaptopClick}
         >
           <planeGeometry args={[1.17, 0.66]} />
           <meshBasicMaterial
@@ -1557,8 +1337,8 @@ function RetroLaptop({
           style={{ pointerEvents: "none" }}
         >
           <div className="computer-hover-prompt">
-            <span>COMPUTER · DETAIL</span>
-            Click to inspect
+            <span>PROJECTS · COMPUTER</span>
+            Open project folders
           </div>
         </Html>
       )}
@@ -1589,13 +1369,14 @@ function WindowAndCurtains() {
 function StudyWorld({
   focus,
   entering,
+  bookEntryStage,
   computerFocused,
+  experienceFocused,
   portfolioFocused,
   phoneFocused,
   teachingBookOpen,
   reducedMotion,
   onInspectComputer,
-  onOpenProjects,
   onInspectPortfolio,
   onOpenPortfolio,
   onOpenTeachingBook,
@@ -1605,13 +1386,14 @@ function StudyWorld({
 }: {
   focus: Point | null;
   entering: boolean;
+  bookEntryStage: "idle" | "focus" | "zoom";
   computerFocused: boolean;
+  experienceFocused: boolean;
   portfolioFocused: boolean;
   phoneFocused: boolean;
   teachingBookOpen: boolean;
   reducedMotion: boolean;
   onInspectComputer: () => void;
-  onOpenProjects: () => void;
   onInspectPortfolio: () => void;
   onOpenPortfolio: () => void;
   onOpenTeachingBook: () => void;
@@ -1638,7 +1420,7 @@ function StudyWorld({
         color="#fff4e4"
         intensity={1.85}
         position={[-8, 12, 7]}
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[1024, 1024]}
         shadow-camera-bottom={-7}
         shadow-camera-far={35}
         shadow-camera-left={-7}
@@ -1685,7 +1467,6 @@ function StudyWorld({
           <RetroLaptop
             focused={computerFocused}
             onInspect={onInspectComputer}
-            onOpenProjects={onOpenProjects}
           />
           <RetroChair />
           <StudyModelSlot
@@ -1705,9 +1486,12 @@ function StudyWorld({
       <CameraRig
         floorLift={floorLift}
         preparing={phase !== "ready"}
+        bookEntryStage={bookEntryStage}
         detailView={
           computerFocused
             ? "computer"
+            : experienceFocused
+              ? "experience"
             : portfolioFocused
               ? "portfolio"
               : null
@@ -1716,6 +1500,8 @@ function StudyWorld({
         focus={
           computerFocused
             ? LAPTOP_FOCUS_POINT
+            : experienceFocused
+              ? EXPERIENCE_FOCUS_POINT
             : portfolioFocused
               ? PORTFOLIO_FOCUS_POINT
               : focus
@@ -1724,7 +1510,7 @@ function StudyWorld({
       />
       <OverviewControls
         apiRef={overviewViewApiRef}
-        disabled={phase !== "ready" || teachingBookOpen || Boolean(focus || entering || computerFocused || portfolioFocused || phoneFocused)}
+        disabled={phase !== "ready" || teachingBookOpen || Boolean(focus || entering || computerFocused || experienceFocused || portfolioFocused || phoneFocused)}
       />
       <StudyDiagnostics />
       <StudyScenePreparation />
@@ -1739,6 +1525,11 @@ export function StudyScene() {
     store.configure(studyAssets);
     preloadStudyAssets(store);
   }, [store]);
+  useEffect(() => {
+    if (phase !== "ready") return;
+    const timer = window.setTimeout(preloadPortfolio, 200);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
   if (phase === "module" || phase === "unavailable") return null;
   return <StudySceneContent />;
 }
@@ -1761,44 +1552,39 @@ function StudySceneContent() {
   const router = useRouter();
   const [focus, setFocus] = useState<Point | null>(null);
   const [entering, setEntering] = useState(false);
-  const [activeView, setActiveView] = useState<"computer" | "portfolio" | "phone" | "teachingBook" | null>(null);
+  const [bookEntryStage, setBookEntryStage] = useState<"idle" | "focus" | "zoom">("idle");
+  const [activeView, setActiveView] = useState<"computer" | "experience" | "portfolio" | "phone" | "teachingBook" | null>(null);
   const overviewViewApiRef = useRef<OverviewViewApi | null>(null);
+  const entryTimersRef = useRef<number[]>([]);
   const [reducedMotion, setReducedMotion] = useState(false);
   const inspecting = activeView !== null && activeView !== "teachingBook";
-  const inspectionCopy = activeView === "computer"
-      ? {
-          index: "DESK OBJECT · 01",
-          title: "Study laptop",
-          detail: "Silver shell · custom screen · sticker keyboard",
-          hint: "Press Esc to return",
-        }
-      : activeView === "phone"
-              ? {
-                  index: "FLOOR OBJECT · 08",
-                  title: "Keitai phone",
-                  detail: "Guestbook · write a text · read notes",
-                  hint: "Press Esc to return",
-                }
-            : {
-                index: "DESK OBJECT · 06",
-                title: "Book",
-                detail: "Open pages · printed study · desk reading",
-                hint: "Click again to open Portfolio",
-              };
 
-  function clearInspect() {
+  useEffect(() => {
+    router.prefetch("/portfolio");
+    return () => {
+      entryTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      entryTimersRef.current = [];
+    };
+  }, [router]);
+  const clearInspect = useCallback(() => {
+    entryTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    entryTimersRef.current = [];
     overviewViewApiRef.current?.restore();
-    setActiveView(null);
-  }
-
-  function inspect(view: "computer" | "portfolio" | "phone") {
-    overviewViewApiRef.current?.capture();
     setFocus(null);
+    setEntering(false);
+    setBookEntryStage("idle");
+    setActiveView(null);
+  }, []);
+
+  function inspect(view: "computer" | "experience" | "phone") {
+    if (entering || activeView !== null || bookEntryStage !== "idle") return;
+    overviewViewApiRef.current?.capture();
+    setFocus(view === "experience" ? EXPERIENCE_FOCUS_POINT : null);
     setActiveView(view);
   }
 
   function openTeachingBook() {
-    if (entering || activeView === "teachingBook") return;
+    if (entering || activeView !== null) return;
     overviewViewApiRef.current?.capture();
     setFocus(null);
     setActiveView("teachingBook");
@@ -1813,28 +1599,41 @@ function StudySceneContent() {
   }, []);
 
   useEffect(() => {
-    if (!inspecting) return;
+    if (!inspecting || activeView === "computer" || activeView === "experience") return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       clearInspect();
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [inspecting]);
+  }, [inspecting, activeView, clearInspect]);
 
-  function enterSection(position: Point, href: string) {
-    if (entering) return;
+  function startPortfolioEntry() {
+    if (entering || activeView !== null || bookEntryStage !== "idle") return;
+    preloadPortfolio();
+    overviewViewApiRef.current?.capture();
+    setFocus(PORTFOLIO_FOCUS_POINT);
+    setActiveView("portfolio");
+    setBookEntryStage("focus");
     if (reducedMotion) {
-      router.push(href);
+      setEntering(true);
+      const timer = window.setTimeout(() => router.push("/portfolio"), BOOK_REDUCED_MOTION_MS);
+      entryTimersRef.current.push(timer);
       return;
     }
-    setFocus(position);
-    setEntering(true);
-    window.setTimeout(() => router.push(href), 720);
+    // Begin the close-up while the focus camera is still settling. The two
+    // phases overlap so there is no visually idle frame between them.
+    const focusTimer = window.setTimeout(() => {
+      setBookEntryStage("zoom");
+      setEntering(true);
+    }, BOOK_FOCUS_MS);
+    const routeTimer = window.setTimeout(() => router.push("/portfolio"), BOOK_ENTRY_MS);
+    entryTimersRef.current.push(focusTimer, routeTimer);
   }
 
   return (
     <div
+      tabIndex={-1}
       className={`study-canvas ${entering ? "is-entering" : ""} ${
         inspecting ? "is-inspecting" : ""
       }`}
@@ -1844,8 +1643,10 @@ function StudySceneContent() {
         // Three already falls back to PCF for the deprecated soft mode. Pin
         // that same effective mode so loading updates do not flip shader variants.
         shadows={{ type: THREE.PCFShadowMap }}
-        dpr={[1, 1.6]}
-        frameloop="demand"
+        dpr={[1, 1.35]}
+        // Keep the renderer continuous only while the book transition owns
+        // the camera; the room returns to demand rendering afterward.
+        frameloop={bookEntryStage !== "idle" || entering ? "always" : "demand"}
         camera={{
           position: [11, 12.68, 10.9],
           zoom: 30,
@@ -1857,23 +1658,18 @@ function StudySceneContent() {
       >
         <StudyWorld
           computerFocused={activeView === "computer"}
+          experienceFocused={activeView === "experience"}
           portfolioFocused={activeView === "portfolio"}
           phoneFocused={activeView === "phone"}
           teachingBookOpen={activeView === "teachingBook"}
           entering={entering}
+          bookEntryStage={bookEntryStage}
           focus={focus}
           onInspectComputer={() => inspect("computer")}
-          onOpenProjects={() =>
-            enterSection(LAPTOP_FOCUS_POINT, "/projects")
-          }
-          onInspectPortfolio={() => inspect("portfolio")}
-          onOpenPortfolio={() =>
-            enterSection(PORTFOLIO_FOCUS_POINT, "/portfolio")
-          }
+          onInspectPortfolio={startPortfolioEntry}
+          onOpenPortfolio={startPortfolioEntry}
           onOpenTeachingBook={openTeachingBook}
-          onOpenExperience={() =>
-            enterSection(EXPERIENCE_FOCUS_POINT, "/experience")
-          }
+          onOpenExperience={() => inspect("experience")}
           onInspectPhone={() => inspect("phone")}
           overviewViewApiRef={overviewViewApiRef}
           reducedMotion={reducedMotion}
@@ -1891,7 +1687,9 @@ function StudySceneContent() {
           </button>
         </>
       )}
-      {inspecting && (
+      {activeView === "computer" && <ProjectFolders onClose={clearInspect} reducedMotion={reducedMotion} />}
+      {activeView === "experience" && <ExperienceCards onClose={clearInspect} reducedMotion={reducedMotion} />}
+      {activeView === "phone" && (
         <div className="computer-inspection-ui" aria-live="polite">
           <button
             className="computer-inspection-back"
@@ -1901,16 +1699,7 @@ function StudySceneContent() {
             <span aria-hidden="true">←</span>
             Back to room
           </button>
-          {activeView === "phone" ? (
-            <PhoneGuestbook />
-          ) : (
-            <div className="computer-detail-card">
-              <span>{inspectionCopy.index}</span>
-              <strong>{inspectionCopy.title}</strong>
-              <p>{inspectionCopy.detail}</p>
-              <small>{inspectionCopy.hint}</small>
-            </div>
-          )}
+          <PhoneGuestbook />
         </div>
       )}
       {activeView === "teachingBook" && (
