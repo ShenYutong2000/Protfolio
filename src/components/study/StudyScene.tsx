@@ -28,6 +28,7 @@ import { useLaptopFolderTexture } from "./useLaptopFolderTexture";
 import { StudyModelSlot, StudyAssetBoundary } from "@/components/study/StudyModel";
 import { studyModelConfigs } from "@/components/study/studyModels";
 import { StudyDiagnostics } from "./StudyDiagnostics";
+import { StudentCardDialog } from "./StudentCardDialog";
 import { studyAssets, studyTextures } from "./studyAssets";
 import { useStudyLoading, useStudyLoadingSnapshot } from "./StudyLoading";
 import { assetRequestUrl } from "./studyLoadingState";
@@ -648,9 +649,6 @@ function RetroPrinter() {
   );
 }
 
-// Kept below for visual regression reference; the wall now mounts the model
-// directly without this interaction wrapper.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function RetroStudentId({
   focused,
   onInspect,
@@ -713,7 +711,7 @@ function RetroStudentId({
         >
           <div className="computer-hover-prompt">
             <span>ABOUT · STUDENT ID</span>
-            Click to inspect
+            Click to view
           </div>
         </Html>
       )}
@@ -721,7 +719,13 @@ function RetroStudentId({
   );
 }
 
-function RetroWallHooks() {
+function RetroWallHooks({
+  focused,
+  onInspect,
+}: {
+  focused: boolean;
+  onInspect: () => void;
+}) {
   return (
     <group position={ID_CARD_HOOKS_POSITION}>
       <StudyModelSlot
@@ -732,12 +736,7 @@ function RetroWallHooks() {
         config={studyModelConfigs.umbrella}
         fallback={null}
       />
-      {/* The ID bag remains part of the room artwork; its hit area and focus UI
-          were intentionally removed. */}
-      <StudyModelSlot
-        config={studyModelConfigs.idBag}
-        fallback={null}
-      />
+      <RetroStudentId focused={focused} onInspect={onInspect} />
     </group>
   );
 }
@@ -1402,6 +1401,7 @@ function StudyWorld({
   portfolioFocused,
   researchFocused,
   phoneFocused,
+  studentCardFocused,
   teachingBookOpen,
   reducedMotion,
   onInspectComputer,
@@ -1411,6 +1411,7 @@ function StudyWorld({
   onOpenTeachingBook,
   onOpenExperience,
   onInspectPhone,
+  onInspectStudentCard,
   onOpenResearch,
   overviewViewApiRef,
 }: {
@@ -1422,6 +1423,7 @@ function StudyWorld({
   portfolioFocused: boolean;
   researchFocused: boolean;
   phoneFocused: boolean;
+  studentCardFocused: boolean;
   teachingBookOpen: boolean;
   reducedMotion: boolean;
   onInspectComputer: () => void;
@@ -1431,6 +1433,7 @@ function StudyWorld({
   onOpenTeachingBook: () => void;
   onOpenExperience: () => void;
   onInspectPhone: () => void;
+  onInspectStudentCard: () => void;
   onOpenResearch: () => void;
   overviewViewApiRef: MutableRefObject<OverviewViewApi | null>;
 }) {
@@ -1513,7 +1516,7 @@ function StudyWorld({
             fallback={null}
           />
         </group>
-        <RetroWallHooks />
+        <RetroWallHooks focused={studentCardFocused} onInspect={onInspectStudentCard} />
         <WindowAndCurtains />
 
       </group>
@@ -1549,7 +1552,7 @@ function StudyWorld({
       />
       <OverviewControls
         apiRef={overviewViewApiRef}
-        disabled={phase !== "ready" || teachingBookOpen || Boolean(focus || entering || computerFocused || researchFocused || experienceFocused || portfolioFocused || phoneFocused)}
+        disabled={phase !== "ready" || teachingBookOpen || studentCardFocused || Boolean(focus || entering || computerFocused || researchFocused || experienceFocused || portfolioFocused || phoneFocused)}
       />
       <StudyDiagnostics />
       <StudyScenePreparation />
@@ -1658,7 +1661,7 @@ function StudySceneContent() {
   const [focus, setFocus] = useState<Point | null>(null);
   const [entering, setEntering] = useState(false);
   const [bookEntryStage, setBookEntryStage] = useState<"idle" | "focus" | "zoom">("idle");
-  const [activeView, setActiveView] = useState<"computer" | "drawerResearch" | "experience" | "portfolio" | "phone" | "teachingBook" | null>(null);
+  const [activeView, setActiveView] = useState<"computer" | "drawerResearch" | "experience" | "portfolio" | "phone" | "teachingBook" | "studentCard" | null>(null);
   const overviewViewApiRef = useRef<OverviewViewApi | null>(null);
   const entryTimersRef = useRef<number[]>([]);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -1704,6 +1707,13 @@ function StudySceneContent() {
     setActiveView("teachingBook");
   }
 
+  function openStudentCard() {
+    if (entering || activeView !== null || bookEntryStage !== "idle") return;
+    overviewViewApiRef.current?.capture();
+    setFocus(null);
+    setActiveView("studentCard");
+  }
+
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     const updatePreference = () => setReducedMotion(media.matches);
@@ -1713,7 +1723,7 @@ function StudySceneContent() {
   }, []);
 
   useEffect(() => {
-    if (!inspecting || activeView === "drawerResearch" || activeView === "experience") return;
+    if (!inspecting || activeView === "drawerResearch" || activeView === "experience" || activeView === "studentCard") return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       clearInspect();
@@ -1798,6 +1808,7 @@ function StudySceneContent() {
           experienceFocused={activeView === "experience"}
           portfolioFocused={activeView === "portfolio"}
           phoneFocused={activeView === "phone"}
+          studentCardFocused={activeView === "studentCard"}
           teachingBookOpen={activeView === "teachingBook"}
           entering={entering}
           bookEntryStage={bookEntryStage}
@@ -1809,6 +1820,7 @@ function StudySceneContent() {
           onOpenTeachingBook={openTeachingBook}
           onOpenExperience={() => inspect("experience")}
           onInspectPhone={() => inspect("phone")}
+          onInspectStudentCard={openStudentCard}
           onOpenResearch={openResearchFolders}
           overviewViewApiRef={overviewViewApiRef}
           reducedMotion={reducedMotion}
@@ -1865,6 +1877,9 @@ function StudySceneContent() {
           onOpenTeaching={() => router.push("/teaching")}
           reducedMotion={reducedMotion}
         />
+      )}
+      {activeView === "studentCard" && (
+        <StudentCardDialog onClose={clearInspect} reducedMotion={reducedMotion} />
       )}
     </div>
   );

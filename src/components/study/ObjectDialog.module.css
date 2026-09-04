@@ -85,6 +85,58 @@
 .cardPages [aria-current="step"] span { width: 19px; border-radius: 9px; background: #6f9262; }
 .counter { font-size: 10px; font-variant-numeric: tabular-nums; letter-spacing: .15em; color: #7e8f77; }
 
+.studentCardStage {
+  width: min(100%, 900px);
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  perspective: 1400px;
+  animation: studentCardEnter 680ms cubic-bezier(.2,.8,.2,1) both;
+}
+.studentCardWrap {
+  --card-rotate-x: 0deg;
+  --card-rotate-y: 0deg;
+  --card-sheen-x: 50%;
+  --card-sheen-y: 50%;
+  position: relative;
+  width: min(100%, 760px);
+  aspect-ratio: 900 / 615;
+  overflow: hidden;
+  border-radius: 28px;
+  background: #f1e7ea;
+  box-shadow: 0 38px 85px -34px rgba(76, 38, 45, .5), 0 4px 0 rgba(255,255,255,.7) inset;
+  transform: perspective(1400px) rotateX(var(--card-rotate-x)) rotateY(var(--card-rotate-y)) rotateZ(-1deg);
+  transition: transform 220ms ease, box-shadow 220ms ease;
+  transform-style: preserve-3d;
+  cursor: default;
+}
+.studentCardWrap::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  background: radial-gradient(circle at var(--card-sheen-x) var(--card-sheen-y), rgba(255,255,255,.34), transparent 25%);
+  mix-blend-mode: screen;
+  opacity: .58;
+  transition: background-position 180ms ease;
+}
+.studentCardImage {
+  position: absolute;
+  width: 113.78%;
+  max-width: none;
+  height: auto;
+  left: -7.44%;
+  top: -32.68%;
+  user-select: none;
+  pointer-events: none;
+}
+.studentCardWrap:hover { box-shadow: 0 44px 95px -34px rgba(76, 38, 45, .58), 0 4px 0 rgba(255,255,255,.7) inset; }
+
+@keyframes studentCardEnter {
+  from { opacity: 0; transform: translate(24vw, -24vh) rotate(13deg) scale(.34); }
+  to { opacity: 1; transform: translate(0) rotate(0) scale(1); }
+}
+
 @keyframes surfaceIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes folderPop { from { opacity: 0; transform: translateY(115px) scale(.7) rotateX(24deg); } 70% { opacity: 1; transform: translateY(-7px) scale(1.02) rotateX(0); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes cardsOpen { from { opacity: 0; transform: translateY(100px) scale(.8); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -106,6 +158,8 @@
   .summary { font-size: 15px; }
   .cardControls { gap: 12px; margin-top: 25px; }
   .footer { gap: 9px 20px; font-size: 9px; }
+  .studentCardStage { width: 100%; }
+  .studentCardWrap { border-radius: 18px; }
 }
 @media (max-height: 820px) and (min-width: 601px) {
   .dialog { padding-top: 20px; padding-bottom: 18px; }
@@ -125,8 +179,12 @@
 .dialog[data-reduced-motion="true"], .dialog[data-reduced-motion="true"] .folderEntry, .dialog[data-reduced-motion="true"] .experience { animation: none; }
 .dialog[data-reduced-motion="true"] .cardIncoming, .dialog[data-reduced-motion="true"] .cardOutgoing { animation-duration: 1ms; }
 .dialog[data-reduced-motion="true"] .folderObject, .dialog[data-reduced-motion="true"] .folderFace, .dialog[data-reduced-motion="true"] .folderPaper { transition: none; }
+.dialog[data-reduced-motion="true"] .studentCardStage { animation: none; }
+.dialog[data-reduced-motion="true"] .studentCardWrap { transition: none; }
 @media (prefers-reduced-motion: reduce) {
   .dialog[open], .folderEntry, .experience { animation: none; }
   .cardIncoming, .cardOutgoing { animation-duration: 1ms; }
   .folderObject, .folderFace, .folderPaper, .cardControls > button, .cardPages span { transition: none; }
+  .studentCardStage { animation: none; }
+  .studentCardWrap { transition: none; }
 }
