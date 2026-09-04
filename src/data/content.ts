@@ -246,7 +246,11 @@ const educationExperience = education.map((item) => ({
   tools: item.focus,
 }));
 
-export const experience = [...workExperience, ...educationExperience] satisfies ExperienceEntry[];
+export const experience = [
+  educationExperience[0],
+  ...workExperience,
+  educationExperience[1],
+] satisfies ExperienceEntry[];
 
 export const portfolioItems = [
   {
