@@ -897,8 +897,11 @@ function TeachingBookDialog({
   const [spreadStart, setSpreadStart] = useState(0);
   const [flipping, setFlipping] = useState(false);
   const [flipDirection, setFlipDirection] = useState<"next" | "previous">("next");
+  const [mobileMode, setMobileMode] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const flipTimerRef = useRef<number | null>(null);
   const bookPages: TeachingBookPage[] = [
     ...education,
     {
@@ -918,24 +921,54 @@ function TeachingBookDialog({
   const rightPage = bookPages[spreadStart + 1];
 
   useEffect(() => {
+    const media = window.matchMedia("(max-width: 700px)");
+    const updateMode = () => setMobileMode(media.matches);
+    updateMode();
+    media.addEventListener("change", updateMode);
+    return () => media.removeEventListener("change", updateMode);
+  }, []);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
     previousFocusRef.current = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
+    dialog?.showModal();
     closeButtonRef.current?.focus();
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
+      if (flipTimerRef.current !== null) window.clearTimeout(flipTimerRef.current);
+      flipTimerRef.current = null;
       document.body.style.overflow = previousOverflow;
+      if (dialog?.open) dialog.close();
       previousFocusRef.current?.focus();
     };
   }, []);
 
+  const turn = useCallback((direction: number) => {
+    if (!canTurn || flipping) return;
+    const step = mobileMode ? Math.sign(direction) : direction;
+    const maxStart = mobileMode ? pageCount - 1 : Math.max(0, pageCount - 2);
+    const next = Math.max(0, Math.min(spreadStart + step, maxStart));
+    if (next === spreadStart) return;
+    if (reducedMotion || mobileMode) {
+      setSpreadStart(next);
+      return;
+    }
+    setFlipDirection(direction > 0 ? "next" : "previous");
+    setFlipping(true);
+    if (flipTimerRef.current !== null) window.clearTimeout(flipTimerRef.current);
+    flipTimerRef.current = window.setTimeout(() => {
+      setSpreadStart(next);
+      setFlipping(false);
+      flipTimerRef.current = null;
+    }, PAGE_FLIP_MS);
+  }, [canTurn, flipping, mobileMode, pageCount, reducedMotion, spreadStart]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      } else if (event.key === "ArrowLeft") {
+      if (event.key === "ArrowLeft") {
         event.preventDefault();
         turn(-2);
       } else if (event.key === "ArrowRight") {
@@ -945,23 +978,7 @@ function TeachingBookDialog({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  });
-
-  function turn(direction: number) {
-    if (!canTurn || flipping) return;
-    const next = Math.max(0, Math.min(spreadStart + direction, Math.max(0, pageCount - 2)));
-    if (next === spreadStart) return;
-    if (reducedMotion) {
-      setSpreadStart(next);
-      return;
-    }
-    setFlipDirection(direction > 0 ? "next" : "previous");
-    setFlipping(true);
-    window.setTimeout(() => {
-      setSpreadStart(next);
-      setFlipping(false);
-    }, PAGE_FLIP_MS);
-  }
+  }, [turn]);
 
   function renderPage(
     page: TeachingBookPage | undefined,
@@ -1027,42 +1044,49 @@ function TeachingBookDialog({
   }
 
   return (
-    <div className="teaching-book-backdrop" role="presentation" onClick={onClose}>
-      <section
-        aria-label="Teaching education book"
-        aria-modal="true"
-        className="teaching-book-dialog"
-        role="dialog"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <dialog
+      ref={dialogRef}
+      aria-label="Teaching education book"
+      className="teaching-book-dialog"
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
+      onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
+    >
+      <div className="teaching-book-stage">
         <button ref={closeButtonRef} className="teaching-book-close" type="button" onClick={onClose} aria-label="Close book">×</button>
         <div className={`teaching-book ${flipping ? "is-flipping" : ""} is-flipping-${flipDirection}`}>
-          <div className="teaching-book-cover" aria-hidden="true" />
-          <div className="teaching-book-spread">
-            {flipping && flipDirection === "previous"
-              ? renderFlipLeaf("previous")
-              : renderPage(leftPage, "left")}
-            <div className="teaching-book-spine" aria-hidden="true" />
-            {flipping && flipDirection === "next" && renderPage(
-              bookPages[spreadStart + 3],
-              "right",
-              spreadStart + 3,
-              "teaching-book-page--incoming",
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="teaching-book-art" src="/assets/teaching-journal.png" alt="" aria-hidden="true" />
+          <div className={`teaching-book-spread${mobileMode ? " teaching-book-spread--single" : ""}`}>
+            {mobileMode ? (
+              renderPage(bookPages[spreadStart], "right", spreadStart, "teaching-book-page--single")
+            ) : (
+              <>
+                {flipping && flipDirection === "previous"
+                  ? renderFlipLeaf("previous")
+                  : renderPage(leftPage, "left")}
+                <div className="teaching-book-spine" aria-hidden="true" />
+                {flipping && flipDirection === "next" && renderPage(
+                  bookPages[spreadStart + 3],
+                  "right",
+                  spreadStart + 3,
+                  "teaching-book-page--incoming",
+                )}
+                {flipping && flipDirection === "next"
+                  ? renderFlipLeaf("next")
+                  : renderPage(rightPage, "right")}
+              </>
             )}
-            {flipping && flipDirection === "next"
-              ? renderFlipLeaf("next")
-              : renderPage(rightPage, "right")}
           </div>
         </div>
         {canTurn && (
           <nav className="teaching-book-controls" aria-label="Book pages">
             <button type="button" onClick={() => turn(-2)} disabled={flipping || spreadStart === 0}>← Previous</button>
-            <span>{Math.floor(spreadStart / 2) + 1} / {Math.ceil(pageCount / 2)}</span>
-            <button type="button" onClick={() => turn(2)} disabled={flipping || spreadStart + 2 >= pageCount}>Next →</button>
+            <span>{mobileMode ? spreadStart + 1 : Math.floor(spreadStart / 2) + 1} / {mobileMode ? pageCount : Math.ceil(pageCount / 2)}</span>
+            <button type="button" onClick={() => turn(2)} disabled={flipping || (mobileMode ? spreadStart + 1 >= pageCount : spreadStart + 2 >= pageCount)}>Next →</button>
           </nav>
         )}
-      </section>
-    </div>
+      </div>
+    </dialog>
   );
 }
 
