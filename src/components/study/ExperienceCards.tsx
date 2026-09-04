@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
-import { ArrowLeft, ArrowRight, ArrowUpRight, BriefcaseBusiness } from "lucide-react";
+import { ArrowLeft, ArrowRight, ArrowUpRight, BriefcaseBusiness, GraduationCap } from "lucide-react";
 import { experience } from "@/data/content";
 import { ObjectDialog } from "./ObjectDialog";
 import styles from "./ObjectDialog.module.css";
@@ -11,13 +11,15 @@ type CardState = { index: number; previous: number | null; direction: number; tu
 
 function CardContent({ index }: { index: number }) {
   const entry = experience[index];
+  const isEducation = entry.kind === "education";
+  const EntryIcon = isEducation ? GraduationCap : BriefcaseBusiness;
   return <>
-    <div className={styles.cardTop}><span>EXPERIENCE / {String(index + 1).padStart(2, "0")}</span><BriefcaseBusiness size={22} aria-hidden="true" /></div>
+    <div className={styles.cardTop}><span>{isEducation ? "EDUCATION" : "WORK EXPERIENCE"} / {String(index + 1).padStart(2, "0")}</span><EntryIcon size={22} aria-hidden="true" /></div>
     <p className={styles.period}>{entry.period}</p>
     <h3>{entry.role}</h3>
     <p className={styles.company}>{entry.company}</p>
     <div className={styles.cardRule} />
-    <div className={styles.cardScroll} data-card-scroll tabIndex={0} aria-label="Experience summary">
+    <div className={styles.cardScroll} data-card-scroll tabIndex={0} aria-label={`${isEducation ? "Education" : "Experience"} summary`}>
       <p className={styles.summary}>{entry.achievements[0]}</p>
       <ul>{entry.achievements.slice(1).map((achievement) => <li key={achievement}>{achievement}</li>)}</ul>
     </div>
@@ -78,7 +80,7 @@ export function ExperienceCards({ onClose, reducedMotion }: { onClose: () => voi
   }
 
   return (
-    <ObjectDialog title="Experience" description="A few chapters from my working life." onClose={onClose} reducedMotion={reducedMotion} onKeyDown={(event) => {
+    <ObjectDialog title="Experience" description="Work and education chapters from my path." onClose={onClose} reducedMotion={reducedMotion} onKeyDown={(event) => {
         if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
         event.preventDefault();
         goTo(card.index + (event.key === "ArrowRight" ? 1 : -1));
@@ -86,7 +88,7 @@ export function ExperienceCards({ onClose, reducedMotion }: { onClose: () => voi
       <div className={styles.experience}>
         {experience.length > 0 ? <>
           <div ref={deckRef} className={styles.deck} data-direction={card.direction}>
-            <div className={styles.cardStack} aria-hidden="true"><span>CHAPTERS FROM THE BRIEFCASE</span></div>
+            <div className={styles.cardStack} aria-hidden="true"><span>CHAPTERS FROM THE PATH</span></div>
             <article key={`current-${card.turn}`} className={`${styles.experienceCard} ${card.previous !== null ? styles.cardIncoming : styles.cardSettled}`} aria-label={`Experience ${card.index + 1} of ${experience.length}`} onPointerDown={(event) => {
               if (event.pointerType !== "mouse") { swipe.current = { x: event.clientX, y: event.clientY }; event.currentTarget.setPointerCapture(event.pointerId); }
             }} onPointerUp={endSwipe} onPointerCancel={() => { swipe.current = null; }}>
@@ -94,11 +96,11 @@ export function ExperienceCards({ onClose, reducedMotion }: { onClose: () => voi
             </article>
             {card.previous !== null && <article key={`outgoing-${card.turn}`} className={`${styles.experienceCard} ${styles.cardOutgoing}`} aria-hidden="true" inert onAnimationEnd={(event) => { if (event.target === event.currentTarget) finishTurn(); }}><CardContent index={card.previous} /></article>}
           </div>
-          <nav className={styles.cardControls} aria-label="Experience cards">
-            <button type="button" aria-label="Previous experience" disabled={card.index === 0 || card.previous !== null} onClick={() => goTo(card.index - 1)}><ArrowLeft size={19} aria-hidden="true" /></button>
-            <div className={styles.cardPages}>{experience.map((entry, index) => <button type="button" key={`${entry.period}-${entry.role}`} aria-label={`Go to experience ${index + 1}`} aria-current={index === card.index ? "step" : undefined} disabled={card.previous !== null} onClick={() => goTo(index)}><span /></button>)}</div>
+          <nav className={styles.cardControls} aria-label="Experience and education cards">
+            <button type="button" aria-label="Previous timeline item" disabled={card.index === 0 || card.previous !== null} onClick={() => goTo(card.index - 1)}><ArrowLeft size={19} aria-hidden="true" /></button>
+            <div className={styles.cardPages}>{experience.map((entry, index) => <button type="button" key={`${entry.period}-${entry.role}`} aria-label={`Go to ${entry.kind === "education" ? "education" : "work experience"} ${index + 1}`} aria-current={index === card.index ? "step" : undefined} disabled={card.previous !== null} onClick={() => goTo(index)}><span /></button>)}</div>
             <span className={styles.counter} role="status" aria-live="polite">{String(card.index + 1).padStart(2, "0")} / {String(experience.length).padStart(2, "0")}</span>
-            <button type="button" aria-label="Next experience" disabled={card.index === experience.length - 1 || card.previous !== null} onClick={() => goTo(card.index + 1)}><ArrowRight size={19} aria-hidden="true" /></button>
+            <button type="button" aria-label="Next timeline item" disabled={card.index === experience.length - 1 || card.previous !== null} onClick={() => goTo(card.index + 1)}><ArrowRight size={19} aria-hidden="true" /></button>
           </nav>
         </> : <p className={styles.empty}>New experience cards will appear here soon.</p>}
       </div>

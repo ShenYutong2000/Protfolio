@@ -1563,6 +1563,15 @@ a:focus-visible {
   padding: 46px 0;
 }
 
+.experience-card-kind {
+  color: var(--coral);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
 .achievement-list {
   color: var(--muted);
   line-height: 1.7;
