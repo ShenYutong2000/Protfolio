@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowLeft, ArrowUpRight } from "lucide-react";
-import { useEffect, useRef, type CSSProperties } from "react";
+import { ArrowDown, ArrowLeft, ArrowUpRight, Pause, Play } from "lucide-react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type CSSProperties } from "react";
 import type { Project } from "@/data/content";
 
 const palettes = [
@@ -11,196 +11,249 @@ const palettes = [
   { ink: "#27222c", green: "#5a9f8e", purple: "#6d4eaa", yellow: "#edc95e", coral: "#ed765d" },
 ] as const;
 
-function KindRibbonField({ palette }: { palette: (typeof palettes)[number] }) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+type SceneKind = "research" | "atlas" | "archive";
+type SceneMode = "hero" | "manifesto" | "challenge" | "approach" | "outcome";
+type Palette = (typeof palettes)[number];
+
+const ribbonColors = (palette: Palette) => [palette.green, palette.purple, palette.coral, palette.yellow];
+
+function ribbonPath(kind: SceneKind, mode: SceneMode, index: number, x: number, y: number, phase: number) {
+  const lane = index * 38;
+  const sway = x * (22 + index * 5);
+  const lift = y * (28 + index * 4);
+  const wave = Math.sin(phase + index * 1.35) * (8 + index * 2);
+
+  if (kind === "atlas") {
+    const start = 66 + lane;
+    const end = 570 - lane * .6;
+    return `M ${start} ${398 - lift} C ${180 + sway} ${315 + wave}, ${300 - sway} ${180 + lift}, ${end} ${112 + lane * .35 + lift}`;
+  }
+  if (kind === "archive") {
+    const start = 88 + lane * .6;
+    return `M ${start} ${84 + lift} C ${206 - sway} ${168 + wave}, ${410 + sway} ${328 - lift}, 570 ${398 - lane * .4}`;
+  }
+  const yStart = mode === "manifesto" ? 92 + lane : 116 + lane;
+  return `M 32 ${yStart + lift} C ${168 + sway} ${42 - wave}, ${358 - sway} ${452 + wave}, 608 ${yStart + 140 - lift}`;
+}
+
+function sceneLabel(kind: SceneKind) {
+  if (kind === "research") return "Research assistant interactive illustration";
+  if (kind === "atlas") return "Community data atlas interactive illustration";
+  return "Creative archive interactive illustration";
+}
+
+function KindInteractiveScene({
+  kind,
+  mode,
+  palette,
+  motionEnabled,
+  className = "",
+}: {
+  kind: SceneKind;
+  mode: SceneMode;
+  palette: Palette;
+  motionEnabled: boolean;
+  className?: string;
+}) {
+  const sceneRef = useRef<HTMLDivElement | null>(null);
+  const pathRefs = useRef<Array<SVGPathElement | null>>([]);
+  const target = useRef({ x: 0, y: 0, active: false });
+  const current = useRef({ x: 0, y: 0 });
+  const visible = useRef(true);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d");
-    if (!canvas || !context) return;
+    const node = sceneRef.current;
+    if (!node || !motionEnabled) return;
 
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let width = 0;
-    let height = 0;
-    let ratio = 1;
-    let lastY = window.scrollY;
-    let scrollVelocity = 0;
-    let targetVelocity = 0;
-    let progress = 0;
     let raf = 0;
-
-    const resize = () => {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      ratio = Math.min(window.devicePixelRatio || 1, 1.4);
-      canvas.width = width * ratio;
-      canvas.height = height * ratio;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    };
-
-    const onScroll = () => {
-      const currentY = window.scrollY;
-      targetVelocity = reducedMotion.matches
-        ? 0
-        : Math.max(-42, Math.min(42, currentY - lastY));
-      lastY = currentY;
-      progress = currentY / Math.max(1, document.documentElement.scrollHeight - height);
-    };
-
-    const draw = (index: number, color: string) => {
-      const direction = index % 2 ? -1 : 1;
-      const wave = Math.sin(progress * Math.PI * (1.2 + index * 0.12) + index * 1.7);
-      const lift = scrollVelocity * (0.55 + index * 0.07) * direction;
-      const startX = -width * 0.12;
-      const endX = width * 1.12;
-      const startY = height * (0.15 + index * 0.17) + wave * height * 0.04 + lift;
-      const endY = height * (0.85 - index * 0.13) - wave * height * 0.06 - lift * 0.72;
-
-      context.beginPath();
-      context.moveTo(startX, startY);
-      context.bezierCurveTo(
-        width * 0.25,
-        startY - height * (0.16 + index * 0.022) - lift,
-        width * 0.62,
-        endY + height * (0.18 - index * 0.018) + lift,
-        endX,
-        endY,
-      );
-      context.strokeStyle = color;
-      context.globalAlpha = 0.17 + Math.min(0.16, Math.abs(scrollVelocity) * 0.004);
-      context.lineWidth = 2 + (index % 3) * 1.2;
-      context.lineCap = "round";
-      context.stroke();
-
-      context.beginPath();
-      context.moveTo(startX + width * 0.06, startY + 5);
-      context.bezierCurveTo(
-        width * 0.27,
-        startY - height * (0.16 + index * 0.022) - lift + 5,
-        width * 0.65,
-        endY + height * (0.18 - index * 0.018) + lift + 5,
-        endX,
-        endY + 5,
-      );
-      context.strokeStyle = palette.yellow;
-      context.globalAlpha = 0.12;
-      context.lineWidth = 1;
-      context.stroke();
-    };
+    let phase = 0;
+    const observer = new IntersectionObserver(([entry]) => {
+      visible.current = entry.isIntersecting;
+    }, { threshold: 0.08 });
+    observer.observe(node);
 
     const render = () => {
-      scrollVelocity += (targetVelocity - scrollVelocity) * 0.11;
-      targetVelocity *= 0.87;
-      context.clearRect(0, 0, width, height);
-      context.globalCompositeOperation = "multiply";
-      [palette.green, palette.purple, palette.coral, palette.green, palette.purple].forEach((color, index) => draw(index, color));
-      context.globalCompositeOperation = "source-over";
-      context.globalAlpha = 1;
+      if (visible.current) {
+        const ease = target.current.active ? .075 : .045;
+        current.current.x += (target.current.x - current.current.x) * ease;
+        current.current.y += (target.current.y - current.current.y) * ease;
+        phase += target.current.active ? .035 : .012;
+        const { x, y } = current.current;
+        node.style.setProperty("--scene-x", x.toFixed(4));
+        node.style.setProperty("--scene-y", y.toFixed(4));
+        node.style.setProperty("--scene-tilt", `${(x * 3.5).toFixed(2)}deg`);
+        pathRefs.current.forEach((path, index) => {
+          path?.setAttribute("d", ribbonPath(kind, mode, index, x, y, phase));
+        });
+      }
       raf = requestAnimationFrame(render);
     };
 
-    resize();
-    onScroll();
-    window.addEventListener("resize", resize);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    reducedMotion.addEventListener("change", onScroll);
     raf = requestAnimationFrame(render);
     return () => {
       cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
-      window.removeEventListener("scroll", onScroll);
-      reducedMotion.removeEventListener("change", onScroll);
+      observer.disconnect();
     };
-  }, [palette]);
+  }, [kind, mode, motionEnabled]);
 
-  return <canvas className="kind-project-ribbons" ref={canvasRef} aria-hidden="true" />;
+  const updatePointer = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!motionEnabled || event.pointerType === "touch") return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    target.current = {
+      x: Math.max(-1, Math.min(1, (event.clientX - rect.left) / rect.width * 2 - 1)),
+      y: Math.max(-1, Math.min(1, (event.clientY - rect.top) / rect.height * 2 - 1)),
+      active: true,
+    };
+  };
+
+  const leavePointer = () => {
+    target.current = { x: 0, y: 0, active: false };
+  };
+
+  const colors = ribbonColors(palette);
+  return (
+    <div
+      ref={sceneRef}
+      className={`kind-interactive-scene kind-scene-${kind} kind-scene-${mode} ${className}`}
+      aria-label={sceneLabel(kind)}
+      role="img"
+      onPointerMove={updatePointer}
+      onPointerEnter={updatePointer}
+      onPointerLeave={leavePointer}
+    >
+      <svg className="kind-scene-svg" viewBox="0 0 640 500" aria-hidden="true">
+        <defs>
+          <linearGradient id={`scene-fill-${kind}`} x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0" stopColor={palette.yellow} stopOpacity=".78" />
+            <stop offset="1" stopColor={palette.coral} stopOpacity=".55" />
+          </linearGradient>
+          <clipPath id={`scene-clip-${kind}`}><rect x="15" y="15" width="610" height="470" rx="36" /></clipPath>
+        </defs>
+        <rect className="kind-scene-paper" x="15" y="15" width="610" height="470" rx="36" fill="#fffbed" />
+        <g clipPath={`url(#scene-clip-${kind})`} className="kind-scene-ribbons" aria-hidden="true">
+          {colors.map((color, index) => (
+            <path
+              key={color}
+              ref={(element) => { pathRefs.current[index] = element; }}
+              d={ribbonPath(kind, mode, index, 0, 0, 0)}
+              stroke={color}
+              className={`kind-scene-ribbon kind-scene-ribbon-${index}`}
+            />
+          ))}
+        </g>
+        {kind === "research" && (
+          <g className="kind-scene-objects kind-research-objects">
+            <rect x="132" y="126" width="376" height="246" rx="20" fill="#fffbed" stroke={palette.ink} strokeWidth="4" />
+            <rect x="156" y="156" width="328" height="160" rx="12" fill={palette.green} opacity=".82" />
+            <path d="M190 198h116M190 226h192M190 254h145" stroke={palette.ink} strokeWidth="8" strokeLinecap="round" opacity=".6" />
+            <circle cx="444" cy="198" r="26" fill={palette.purple} />
+            <path d="M432 198h24M444 186v24" stroke="#fffbed" strokeWidth="5" strokeLinecap="round" />
+            <rect x="205" y="346" width="230" height="16" rx="8" fill={palette.ink} opacity=".72" />
+            <circle className="kind-scene-orb orb-one" cx="98" cy="148" r="22" fill={palette.coral} stroke={palette.ink} strokeWidth="4" />
+            <circle className="kind-scene-orb orb-two" cx="548" cy="342" r="30" fill={palette.yellow} stroke={palette.ink} strokeWidth="4" />
+          </g>
+        )}
+        {kind === "atlas" && (
+          <g className="kind-scene-objects kind-atlas-objects">
+            <path d="M110 144 180 110 256 136 329 96 419 142 514 112 548 202 500 270 524 350 426 386 350 356 270 396 188 354 112 370 86 268Z" fill={palette.green} opacity=".68" stroke={palette.ink} strokeWidth="4" />
+            <path d="M128 238 205 210 278 242 359 182 450 226 510 198M158 310 224 272 306 300 394 260 475 300" fill="none" stroke="#fffbed" strokeWidth="8" strokeLinecap="round" opacity=".75" />
+            {[[176,188],[285,244],[386,190],[464,277],[232,326]].map(([cx, cy], index) => (
+              <circle key={`${cx}-${cy}`} className={`kind-scene-node node-${index}`} cx={cx} cy={cy} r={index % 2 ? 14 : 18} fill={index % 2 ? palette.yellow : palette.coral} stroke={palette.ink} strokeWidth="4" />
+            ))}
+          </g>
+        )}
+        {kind === "archive" && (
+          <g className="kind-scene-objects kind-archive-objects">
+            <rect className="archive-card archive-card-back" x="146" y="104" width="292" height="230" rx="18" fill={palette.green} stroke={palette.ink} strokeWidth="4" />
+            <rect className="archive-card archive-card-mid" x="186" y="138" width="292" height="230" rx="18" fill={palette.yellow} stroke={palette.ink} strokeWidth="4" />
+            <rect className="archive-card archive-card-front" x="226" y="172" width="292" height="230" rx="18" fill="#fffbed" stroke={palette.ink} strokeWidth="4" />
+            <circle cx="310" cy="248" r="42" fill={palette.coral} stroke={palette.ink} strokeWidth="4" />
+            <path d="m295 248 12 12 22-28" fill="none" stroke="#fffbed" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M276 330h152M276 352h98" stroke={palette.purple} strokeWidth="8" strokeLinecap="round" opacity=".75" />
+          </g>
+        )}
+      </svg>
+      <span className="kind-scene-hint">Move to explore</span>
+    </div>
+  );
 }
 
-function KindArtwork({ variant, palette }: { variant: number; palette: (typeof palettes)[number] }) {
-  if (variant === 0) {
-    return (
-      <svg className="kind-artwork" viewBox="0 0 560 460" aria-hidden="true">
-        <rect x="28" y="30" width="504" height="390" rx="18" fill="#fffdf5" stroke={palette.ink} strokeWidth="3" />
-        <path d="M28 95h504" stroke={palette.ink} strokeWidth="3" />
-        <circle cx="55" cy="63" r="7" fill={palette.coral} /><circle cx="78" cy="63" r="7" fill={palette.yellow} /><circle cx="101" cy="63" r="7" fill={palette.green} />
-        <rect x="68" y="136" width="178" height="216" rx="12" fill={palette.green} />
-        <path d="M93 185h106M93 215h78M93 245h99" stroke={palette.ink} strokeWidth="6" strokeLinecap="round" opacity=".7" />
-        <circle cx="345" cy="238" r="86" fill={palette.yellow} stroke={palette.ink} strokeWidth="3" />
-        <circle cx="345" cy="238" r="42" fill="#fffdf5" stroke={palette.ink} strokeWidth="3" />
-        <path d="M276 322c42 24 112 27 166-13" fill="none" stroke={palette.purple} strokeWidth="8" strokeLinecap="round" />
-        <path d="M365 170c44-40 88-23 103 8" fill="none" stroke={palette.coral} strokeWidth="4" strokeLinecap="round" />
-      </svg>
-    );
-  }
-
-  if (variant === 1) {
-    return (
-      <svg className="kind-artwork" viewBox="0 0 560 460" aria-hidden="true">
-        <path d="M38 104c68-67 138-67 203 0s140 67 204 0 81-51 100-26" fill="none" stroke={palette.purple} strokeWidth="3" />
-        <path d="M38 335c87-64 165-58 236 0s154 59 248-12" fill="none" stroke={palette.green} strokeWidth="3" />
-        <circle cx="161" cy="220" r="92" fill={palette.coral} stroke={palette.ink} strokeWidth="3" />
-        <circle cx="161" cy="220" r="44" fill="#fffdf5" stroke={palette.ink} strokeWidth="3" />
-        <path d="M161 176v88M117 220h88" stroke={palette.ink} strokeWidth="3" />
-        <rect x="318" y="145" width="160" height="36" rx="18" fill="#fffdf5" stroke={palette.ink} strokeWidth="3" />
-        <rect x="318" y="200" width="115" height="36" rx="18" fill={palette.yellow} stroke={palette.ink} strokeWidth="3" />
-        <rect x="318" y="255" width="184" height="36" rx="18" fill={palette.green} stroke={palette.ink} strokeWidth="3" />
-        <path d="M85 384h389" stroke={palette.ink} strokeWidth="3" strokeDasharray="8 10" />
-      </svg>
-    );
-  }
-
+function MotionToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
   return (
-    <svg className="kind-artwork" viewBox="0 0 560 460" aria-hidden="true">
-      <rect x="70" y="65" width="420" height="320" rx="150" fill={palette.yellow} stroke={palette.ink} strokeWidth="3" />
-      <circle cx="190" cy="188" r="72" fill={palette.purple} stroke={palette.ink} strokeWidth="3" />
-      <circle cx="190" cy="188" r="23" fill="#fffdf5" stroke={palette.ink} strokeWidth="3" />
-      <circle cx="383" cy="260" r="92" fill={palette.green} stroke={palette.ink} strokeWidth="3" />
-      <path d="M350 260h67M383 227v67" stroke={palette.ink} strokeWidth="3" />
-      <rect x="96" y="313" width="146" height="42" rx="21" fill={palette.coral} stroke={palette.ink} strokeWidth="3" />
-      <path d="M299 104c36 19 60 50 70 91" fill="none" stroke={palette.coral} strokeWidth="7" strokeLinecap="round" />
-      <path d="M280 374c34-10 66-10 96 0" fill="none" stroke={palette.purple} strokeWidth="4" strokeLinecap="round" />
-    </svg>
+    <button className="kind-motion-toggle" type="button" aria-pressed={!enabled} onClick={onToggle}>
+      {enabled ? <Pause size={14} aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}
+      <span>{enabled ? "Pause motion" : "Play motion"}</span>
+    </button>
   );
 }
 
 export function KindProjectPage({ project, nextProject }: { project: Project; nextProject: Project }) {
   const index = Math.max(0, Number(project.index) - 1);
   const palette = palettes[index % palettes.length];
+  const scene: SceneKind = index === 0 ? "research" : index === 1 ? "atlas" : "archive";
+  const [motionEnabled, setMotionEnabled] = useState(true);
   const chapters = [
-    { label: "01 / Challenge", title: "Start with the question, not the interface.", body: project.challenge },
-    { label: "02 / Approach", title: "Make the path easier to follow.", body: project.approach },
-    { label: "03 / Outcome", title: "Leave people with more room to think.", body: project.outcome },
+    { label: "01 / Challenge", title: "Start with the question, not the interface.", body: project.challenge, mode: "challenge" as const },
+    { label: "02 / Approach", title: "Make the path easier to follow.", body: project.approach, mode: "approach" as const },
+    { label: "03 / Outcome", title: "Leave people with more room to think.", body: project.outcome, mode: "outcome" as const },
   ];
 
+  useEffect(() => {
+    const stored = window.localStorage.getItem("kind-motion-enabled");
+    if (stored !== null) setMotionEnabled(stored !== "false");
+    else if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) setMotionEnabled(false);
+
+    const reveals = document.querySelectorAll<HTMLElement>(".kind-reveal");
+    const observer = new IntersectionObserver((entries) => entries.forEach((entry) => {
+      if (entry.isIntersecting) (entry.target as HTMLElement).dataset.visible = "true";
+    }), { threshold: .14 });
+    reveals.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, []);
+
+  const toggleMotion = () => {
+    setMotionEnabled((current) => {
+      const next = !current;
+      window.localStorage.setItem("kind-motion-enabled", String(next));
+      return next;
+    });
+  };
+
+  const pageStyle = {
+    "--kind-green": palette.green,
+    "--kind-purple": palette.purple,
+    "--kind-yellow": palette.yellow,
+    "--kind-coral": palette.coral,
+    "--kind-ink": palette.ink,
+  } as CSSProperties;
+
   return (
-    <main className="kind-project-page" style={{ "--kind-green": palette.green, "--kind-purple": palette.purple, "--kind-yellow": palette.yellow, "--kind-coral": palette.coral } as CSSProperties}>
-      <KindRibbonField palette={palette} />
+    <main className="kind-project-page" style={pageStyle}>
       <nav className="kind-project-nav" aria-label="Project navigation">
-        <Link href="/" className="kind-project-brand">Interactive study</Link>
-        <div><Link href="/projects">All projects</Link><span aria-hidden="true">·</span><span>Project / {project.index}</span></div>
-        <Link href={`/projects/${nextProject.slug}`}>Next <ArrowUpRight size={16} aria-hidden="true" /></Link>
+        <Link href="/" className="kind-project-brand"><span className="kind-brand-mark" aria-hidden="true">✦</span> Interactive study</Link>
+        <div className="kind-project-nav-center"><Link href="/projects">All projects</Link><span aria-hidden="true">·</span><span>Project / {project.index}</span></div>
+        <Link href={`/projects/${nextProject.slug}`} className="kind-project-nav-next">Next <ArrowUpRight size={16} aria-hidden="true" /></Link>
       </nav>
 
       <header className="kind-project-hero">
         <div className="kind-project-hero-meta"><span>{project.meta}</span><span>{project.year} · {project.duration}</span></div>
         <div className="kind-project-hero-grid">
-          <div>
+          <div className="kind-project-hero-copy kind-reveal">
             <p className="kind-project-eyebrow">Project / {project.index}</p>
             <h1>{project.title}</h1>
+            <p className="kind-project-lede">{project.summary}</p>
+            <Link className="kind-project-cta" href="#kind-overview">Explore the project <ArrowDown size={16} aria-hidden="true" /></Link>
           </div>
-          <p className="kind-project-lede">{project.summary}</p>
+          <KindInteractiveScene kind={scene} mode="hero" palette={palette} motionEnabled={motionEnabled} className="kind-project-hero-scene kind-reveal" />
         </div>
         <a className="kind-project-scroll" href="#kind-overview"><span>Scroll to explore</span><ArrowDown size={18} aria-hidden="true" /></a>
       </header>
 
-      <section className="kind-project-overview" id="kind-overview">
+      <section className="kind-project-manifesto kind-reveal" id="kind-overview">
         <p className="kind-project-section-label">A closer look</p>
-        <div>
-          <h2>Useful things are made of small, considered decisions.</h2>
-          <p>{project.summary}</p>
-        </div>
+        <h2>Useful things are made of small, considered decisions<span>.</span></h2>
+        <KindInteractiveScene kind={scene} mode="manifesto" palette={palette} motionEnabled={motionEnabled} className="kind-project-manifesto-scene" />
+        <p>{project.summary}</p>
         <dl>
           <div><dt>Role</dt><dd>{project.role}</dd></div>
           <div><dt>Focus</dt><dd>{project.meta}</dd></div>
@@ -210,17 +263,18 @@ export function KindProjectPage({ project, nextProject }: { project: Project; ne
 
       <div className="kind-project-chapters">
         {chapters.map((chapter, chapterIndex) => (
-          <section className={`kind-project-chapter ${chapterIndex % 2 ? "is-reversed" : ""}`} key={chapter.label}>
-            <div className="kind-project-art-wrap"><KindArtwork variant={(index + chapterIndex) % 3} palette={palette} /><span className="kind-project-art-note">{String(chapterIndex + 1).padStart(2, "0")} / {project.year}</span></div>
+          <section className={`kind-project-chapter kind-reveal ${chapterIndex % 2 ? "is-reversed" : ""}`} key={chapter.label}>
+            <KindInteractiveScene kind={scene} mode={chapter.mode} palette={palette} motionEnabled={motionEnabled} className="kind-project-art-wrap" />
             <div className="kind-project-chapter-copy"><p className="kind-project-section-label">{chapter.label}</p><h2>{chapter.title}</h2><p>{chapter.body}</p></div>
           </section>
         ))}
       </div>
 
-      <footer className="kind-project-footer">
+      <footer className="kind-project-footer kind-reveal">
         <Link href="/projects" className="kind-project-back"><ArrowLeft size={16} aria-hidden="true" /> Back to all projects</Link>
         <Link href={`/projects/${nextProject.slug}`} className="kind-project-next"><span>Next project / {nextProject.index}</span><strong>{nextProject.title}</strong><ArrowUpRight size={34} aria-hidden="true" /></Link>
       </footer>
+      <MotionToggle enabled={motionEnabled} onToggle={toggleMotion} />
     </main>
   );
 }
