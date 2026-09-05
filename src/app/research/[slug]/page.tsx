@@ -46,6 +46,14 @@ export default async function ResearchDetailPage({
     approach: entry.method,
     outcome: entry.result,
     links: entry.links,
+    caseStudy: entry.visuals
+      ? {
+          overview: { image: entry.visuals.hero },
+          challenge: { image: entry.visuals.question },
+          approach: { image: entry.visuals.method },
+          outcome: { image: entry.visuals.finding },
+        }
+      : undefined,
   });
 
   return (
