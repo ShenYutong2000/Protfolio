@@ -4,6 +4,13 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { projects } from "@/data/content";
 
+export const projectFolderLayouts = [
+  { canvasX: 64, canvasY: 58, screenX: -0.315, screenY: 0.614 },
+  { canvasX: 444, canvasY: 58, screenX: 0.315, screenY: 0.614 },
+  { canvasX: 64, canvasY: 243, screenX: -0.315, screenY: 0.329 },
+  { canvasX: 444, canvasY: 243, screenX: 0.315, screenY: 0.329 },
+] as const;
+
 // The in-room screen previews the same project folders as the accessible DOM dialog.
 export function useLaptopFolderTexture(hoveredProject: number | null = null) {
   const texture = useMemo(() => {
@@ -63,43 +70,45 @@ export function useLaptopFolderTexture(hoveredProject: number | null = null) {
     context.textAlign = "left";
     context.fillText("PROJECT DESKTOP", 40, 52);
 
-    const colors = ["#f5d13d", "#ef7da2", "#486bd8"];
-    projects.slice(0, 3).forEach((project, index) => {
-      const x = 54 + index * 238;
-      const y = 128;
+    const colors = ["#f5d13d", "#ef7da2", "#486bd8", "#7dd6ff"];
+    projectFolderLayouts.forEach(({ canvasX, canvasY }, index) => {
+      const project = projects[index];
+      if (!project) return;
+      const x = canvasX;
+      const y = canvasY;
       if (hoveredProject === index) {
         context.fillStyle = "rgba(255,255,255,.48)";
         context.strokeStyle = "rgba(24,37,42,.75)";
         context.lineWidth = 3;
         context.setLineDash([8, 6]);
         context.beginPath();
-        context.roundRect(x - 18, y - 25, 196, 226, 9);
+        context.roundRect(x - 18, y - 18, 296, 180, 9);
         context.fill();
         context.stroke();
         context.setLineDash([]);
       }
 
       context.strokeStyle = "#17242a";
-      context.lineWidth = 7;
+      context.lineWidth = 6;
       context.fillStyle = colors[index];
       context.beginPath();
-      context.roundRect(x + 8, y, 72, 35, 7);
+      context.roundRect(x + 8, y, 96, 34, 7);
       context.fill();
       context.stroke();
       context.beginPath();
-      context.roundRect(x, y + 25, 150, 104, 9);
+      context.roundRect(x, y + 25, 260, 135, 9);
       context.fill();
       context.stroke();
 
       context.fillStyle = "#17242a";
-      context.font = "900 38px monospace";
+      context.font = "900 34px monospace";
       context.textAlign = "center";
-      context.fillText(project.index, x + 75, y + 96);
+      context.fillText(project.index, x + 130, y + 86);
       context.font = "800 16px sans-serif";
       const title = project.title.length > 18 ? `${project.title.slice(0, 17)}…` : project.title;
-      context.fillText(title.toUpperCase(), x + 75, y + 163);
+      context.fillText(title.toUpperCase(), x + 130, y + 119);
       context.font = "700 13px monospace";
-      context.fillText(`PROJECT ${index + 1}`, x + 75, y + 185);
+      context.fillText(`PROJECT / ${project.index}`, x + 130, y + 145);
     });
 
     context.fillStyle = "#f7f2df";

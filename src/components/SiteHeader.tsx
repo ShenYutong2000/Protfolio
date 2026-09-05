@@ -12,9 +12,15 @@ export function SiteHeader() {
 
       <nav className="main-nav" aria-label="Primary navigation">
         {navigation.map((item) => (
-          <Link key={item.href} href={item.href}>
-            {item.label}
-          </Link>
+          item.href.startsWith("/?view=") ? (
+            <a key={item.href} href={item.href}>
+              {item.label}
+            </a>
+          ) : (
+            <Link key={item.href} href={item.href}>
+              {item.label}
+            </Link>
+          )
         ))}
       </nav>
 

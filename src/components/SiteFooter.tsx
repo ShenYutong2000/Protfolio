@@ -17,9 +17,15 @@ export function SiteFooter() {
       <div className="footer-links">
         <nav aria-label="Footer navigation">
           {navigation.map((item) => (
-            <Link href={item.href} key={item.href}>
-              {item.label}
-            </Link>
+            item.href.startsWith("/?view=") ? (
+              <a key={item.href} href={item.href}>
+                {item.label}
+              </a>
+            ) : (
+              <Link href={item.href} key={item.href}>
+                {item.label}
+              </Link>
+            )
           ))}
         </nav>
         <nav aria-label="Social links">

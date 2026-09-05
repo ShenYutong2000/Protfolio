@@ -1,13 +1,12 @@
 export const INNER_X_OFFSETS_VW = [0, -14, 10, -6, 16];
 
-// Keyed by image index, aligned to the home-page captions:
-// 0 Seealpsee · 1 K2 · 2 The North Face · 3 Mount Cook · 4 Mount Everest
+// Keyed by image index, aligned to the home-page captions.
 const FACTS = [
-  "Seealpsee lies at eleven hundred meters in the Appenzell Alps, a sliver of meltwater cupped beneath the limestone walls of the Säntis. For much of the day the cliffs keep it in shadow, and its surface settles into a still, glassy green.",
-  "K2 rises to 8,611 meters on the Pakistan-China border, the second-highest point on Earth and by far the more dangerous to climb. It went unclimbed in winter until 2021, decades after every other eight-thousander had already fallen.",
-  "A mountain's north face turns away from the sun, so its ice never fully lets go. The Eiger's is eighteen hundred meters of it, a wall so deadly that climbers renamed the Nordwand the Mordwand, the murder wall.",
-  "Aoraki, or Mount Cook, is New Zealand's highest peak at 3,724 meters, though a 1991 rockfall sheared roughly ten meters off its summit overnight. Edmund Hillary trained on its slopes before he ever set eyes on Everest.",
-  "Mount Everest grows roughly four millimeters taller each year as the Indian plate keeps pushing into Asia. Its summit was once seabed, and fossilized marine creatures are still found near the top.",
+  "A watercolor study of a traditional Chinese gate, built around saturated reds, layered ornament, and the quiet view beyond the threshold.",
+  "An architectural sketch made from observation, focusing on the relationship between a campus building, its roofline, and the surrounding trees.",
+  "A pen-and-ink study of Gothic architecture, using repeated windows, vertical lines, and cross-hatching to understand the building's structure.",
+  "Whale Watching pairs a blue digital landscape with a small moving subject, while the adjacent studio photograph records the painting process in place.",
+  "A calligraphy study exploring rhythm, spacing, and the physical movement of the brush across paper, from practice sheets to red New Year couplets.",
 ];
 
 export function inner(image) {

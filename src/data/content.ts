@@ -1,3 +1,11 @@
+type ProjectPanelKey = "overview" | "challenge" | "approach" | "outcome";
+
+type ProjectPanelConfig = {
+  eyebrow?: string;
+  heading?: string;
+  image?: string;
+};
+
 export type Project = {
   slug: string;
   index: string;
@@ -12,6 +20,7 @@ export type Project = {
   approach: string;
   outcome: string;
   links: { label: string; href: string }[];
+  caseStudy?: Partial<Record<ProjectPanelKey, ProjectPanelConfig>>;
 };
 
 export type ResearchItem = {
@@ -28,6 +37,12 @@ export type ResearchItem = {
   result: string;
   keywords: string[];
   links: { label: string; href: string }[];
+  visuals?: {
+    hero?: string;
+    question?: string;
+    method?: string;
+    finding?: string;
+  };
 };
 
 export type PortfolioItem = {
@@ -66,74 +81,168 @@ export const siteProfile = {
 };
 
 export const navigation = [
-  { href: "/projects", label: "Projects" },
   { href: "/teaching", label: "Teaching" },
-  { href: "/research", label: "Research" },
-  { href: "/experience", label: "Experience" },
+  { href: "/?view=research", label: "Research" },
+  { href: "/?view=computer", label: "Project" },
   { href: "/portfolio", label: "Portfolio" },
-  { href: "/image-to-3d", label: "Image → 3D" },
 ];
 
 export const projects = [
   {
-    slug: "intelligent-research-assistant",
+    slug: "physics-error-bank",
     index: "01",
-    title: "Intelligent Research Assistant",
+    title: "Physics Error Bank",
     summary:
-      "A workspace that helps researchers organize literature, surface connections, and turn notes into clear insights.",
-    meta: "Product design · Full-stack development",
-    year: "2026",
-    duration: "12 weeks",
-    role: "Product designer & full-stack developer",
-    tags: ["Next.js", "Python", "AI"],
-    challenge:
-      "Researchers often collect more material than they can meaningfully synthesize. The challenge was to support exploration without replacing the researcher’s judgment.",
-    approach:
-      "I mapped the literature-review workflow, prototyped the information architecture, and built a focused workspace for collecting sources, connecting notes, and reviewing AI-assisted suggestions.",
-    outcome:
-      "The prototype established a clear end-to-end workflow and created a reusable foundation for testing retrieval quality, transparency, and researcher control.",
-    links: [
-      { label: "Live demo", href: "#" },
-      { label: "Source code", href: "#" },
-    ],
-  },
-  {
-    slug: "community-data-atlas",
-    index: "02",
-    title: "Community Data Atlas",
-    summary:
-      "An accessible data story that makes complex local indicators easier to explore and understand.",
-    meta: "Data visualization · Front-end development",
-    year: "2025",
-    duration: "8 weeks",
-    role: "Data designer & front-end developer",
-    tags: ["React", "D3.js", "Data"],
-    challenge:
-      "Important community indicators were available, but fragmented datasets and technical language made them difficult for non-specialists to use.",
-    approach:
-      "I organized the indicators around everyday questions, created accessible visual patterns, and tested responsive interactions across desktop and mobile layouts.",
-    outcome:
-      "The resulting concept demonstrated how layered explanation and focused comparisons can turn raw indicators into an understandable public narrative.",
-    links: [{ label: "Case study", href: "#" }],
-  },
-  {
-    slug: "creative-archive",
-    index: "03",
-    title: "Creative Archive",
-    summary:
-      "A playful digital archive for collecting visual experiments, process notes, and finished work.",
-    meta: "Creative coding · Interaction design",
+      "A smart review system that helps physics students turn mistakes into targeted practice while giving teachers clear insight into class-wide learning gaps.",
+    meta: "Educational technology · Full-stack development",
     year: "2025",
     duration: "Ongoing",
-    role: "Designer & creative developer",
-    tags: ["WebGL", "Design", "Motion"],
+    role: "Product designer & full-stack developer",
+    tags: ["Next.js", "PostgreSQL", "Prisma", "Vercel"],
     challenge:
-      "Traditional portfolio grids rarely communicate the relationships between experiments, process notes, and finished work.",
+      "Traditional review often means rereading notes or solving random problems. Students can repeat the same types of mistakes, while teachers lack clear data about which concepts their class finds difficult.",
     approach:
-      "I explored spatial navigation, object-based interaction, and a flexible metadata system that allows work to be connected by theme, medium, and time.",
+      "Students log the problem, error type, physics topic, incorrect approach, and correct solution. The system uses that error bank to generate targeted practice papers, while a teacher dashboard surfaces class-wide patterns and theme mastery.",
     outcome:
-      "The archive became an evolving creative system rather than a fixed gallery, making room for unfinished thinking as well as polished outcomes.",
-    links: [{ label: "View prototype", href: "#" }],
+      "Physics Error Bank creates a feedback loop between student practice and teacher insight. Built as a production-ready Next.js application with PostgreSQL and Prisma, it supports a more personalized and responsive approach to physics education.",
+    links: [],
+    caseStudy: {
+      overview: {
+        image: "/assets/projects/physics-error-bank-overview.png",
+      },
+      challenge: {
+        eyebrow: "Student Practice",
+        heading: "Make mistakes useful",
+        image: "/assets/projects/physics-error-bank-papers.png",
+      },
+      approach: {
+        eyebrow: "Error Library",
+        heading: "Turn wrong answers into a study system",
+        image: "/assets/projects/physics-error-bank-library.png",
+      },
+      outcome: {
+        eyebrow: "Teacher Insight",
+        heading: "Connect practice with instruction",
+        image: "/assets/projects/physics-error-bank-teacher-stats.png",
+      },
+    },
+  },
+  {
+    slug: "automatic-content-translation-model",
+    index: "02",
+    title: "Automatic Content Translation Model",
+    summary:
+      "This project leverages large language models (LLMs) to automate the translation of coding workshop content for the educational NGO, Nuevo Foundation. The tool supports eight languages and makes foundational tech education accessible to a global student body.",
+    meta: "AI · Educational technology",
+    year: "2023",
+    duration: "Sept. - Oct. 2023",
+    role: "Main contributor",
+    tags: ["C#", "Python", "HTML", "CSS"],
+    challenge:
+      "I made this project during the 2023 Microsoft Hackathon, when Microsoft first announced its cooperation with OpenAI. I wanted to explore how effective use of large language models could make educational resources more accessible to a global audience.",
+    approach:
+      "The work combined user research, collaborative prototyping, and technical iteration. The script reads Markdown files or folders, uses the Azure AI Inference SDK with a supported GitHub Models LLM to translate the content, and saves the translated files in a separate directory.",
+    outcome:
+      "This was my first experience systematically implementing AI to solve a real-world problem. It showed me the power of combining cutting-edge technology with a clear user need; working with engineers and translators also reinforced the importance of iterative feedback. At IDM, I want to build on this with more user-friendly digital product design and broader language support.",
+    links: [],
+    caseStudy: {
+      overview: {
+        image: "/assets/projects/automatic-content-translation-overview.png",
+      },
+      challenge: {
+        eyebrow: "Inspiration",
+        heading: "Make learning travel farther",
+        image: "/assets/projects/automatic-content-translation-inspiration.png",
+      },
+      approach: {
+        eyebrow: "Research & Outcome",
+        heading: "Translate from source to new files",
+        image: "/assets/projects/automatic-content-translation-approach.png",
+      },
+      outcome: {
+        eyebrow: "Evaluation & Learning",
+        heading: "Build around a clear user need",
+        image: "/assets/projects/automatic-content-translation-outcome.jpg",
+      },
+    },
+  },
+  {
+    slug: "ai-animator",
+    index: "03",
+    title: "AI Animator",
+    summary:
+      "A product design concept for a generative AI plugin that helps 2D animators create draft animations while preserving artistic originality.",
+    meta: "Product design · Generative AI",
+    year: "2022",
+    duration: "Sept. - Dec. 2022",
+    role: "Main contributor",
+    tags: ["Figma", "Procreate", "Python", "Market research"],
+    challenge:
+      "As animation enthusiasts, my partner and I identified critical inefficiencies in the 2D animation industry through coursework and personal interest. We wanted to design an AI tool that acts as an aid, not a replacement.",
+    approach:
+      "The workflow imports existing work as .XFL files for style reference, takes object and action prompts, and lets animators configure duration, frame rate, and canvas size. It then generates multiple draft animations that can be selected, varied, and exported for refinement.",
+    outcome:
+      "This was my first deep dive into a structured product design process, from market research and interviews with student animators to MVP feature prioritization. I learned to translate user pain points into a concrete, feature-rich design.",
+    links: [],
+    caseStudy: {
+      overview: {
+        image: "/assets/projects/ai-animator-overview.png",
+      },
+      challenge: {
+        eyebrow: "Process",
+        heading: "Design AI as an aid",
+        image: "/assets/projects/ai-animator-process.png",
+      },
+      approach: {
+        eyebrow: "Workflow",
+        heading: "From source files to draft motion",
+        image: "/assets/projects/ai-animator-import.png",
+      },
+      outcome: {
+        eyebrow: "Evaluation & Learning",
+        heading: "Turn animator pain points into features",
+        image: "/assets/projects/ai-animator-prompt.png",
+      },
+    },
+  },
+  {
+    slug: "aaccnj-job-board",
+    index: "04",
+    title: "AACCNJ Job Board",
+    summary:
+      "A job board built for the African American Chamber of Commerce of New Jersey, connecting its members with partner companies through an existing website.",
+    meta: "Human-centered design · Full-stack development",
+    year: "2022",
+    duration: "Jan. - April 2022",
+    role: "Main contributor",
+    tags: ["Python", "Java", "SQL", "HTML", "CSS"],
+    challenge:
+      "Through active communication, we discovered that AACCNJ did not want a standalone platform. They needed an integrated tool for three user types: companies posting jobs, administrators approving listings, and job-seekers searching and applying.",
+    approach:
+      "We planned systematically, challenged assumptions through user feedback, and designed for cultural inclusivity. The job board supports searchable listings, location filtering, company submissions, administrative approval, and a workflow that fits the existing AACCNJ website.",
+    outcome:
+      "This project was a masterclass in human-centered design. I learned that even logical assumptions must be validated with users, and that good design is defined by how well it serves a specific audience's context.",
+    links: [],
+    caseStudy: {
+      overview: {
+        image: "/assets/projects/aaccnj-job-board-overview.png",
+      },
+      challenge: {
+        eyebrow: "Process",
+        heading: "Start with the people, not the platform",
+        image: "/assets/projects/aaccnj-job-board-search.png",
+      },
+      approach: {
+        eyebrow: "Implementation",
+        heading: "Build inside the existing workflow",
+        image: "/assets/projects/aaccnj-job-board-repository.png",
+      },
+      outcome: {
+        eyebrow: "Evaluation & Learning",
+        heading: "Validate assumptions with users",
+        image: "/assets/projects/aaccnj-job-board-filtering.jpg",
+      },
+    },
   },
 ] satisfies Project[];
 
@@ -161,45 +270,29 @@ export const education = [
 
 export const research = [
   {
-    slug: "research-paper-title",
-    type: "Paper",
-    year: "2026",
-    title: "Your Research Paper or Study Title",
-    venue: "Journal or Conference · Published / In Review",
-    status: "In review",
-    collaborators: "Your Name · Collaborator Name",
-    summary:
-      "Summarize the research question, your method, and the most meaningful result in two concise sentences.",
-    question:
-      "State the specific problem or knowledge gap that motivated this research and explain why it matters.",
-    method:
-      "Describe the study design, dataset, participants, analytical method, or technical system in clear language.",
-    result:
-      "Summarize the central finding, contribution, or implication without overstating what the evidence supports.",
-    keywords: ["Research area", "Method", "Application"],
-    links: [
-      { label: "Read paper", href: "#" },
-      { label: "View DOI", href: "#" },
-    ],
-  },
-  {
-    slug: "research-project-title",
+    slug: "personality-detection-model",
     type: "Project",
-    year: "2025",
-    title: "Your Research Project Title",
-    venue: "Research Lab · Your Role",
-    status: "Ongoing",
-    collaborators: "Research Lab · Project Team",
+    year: "2021",
+    title: "Personality Detection Model",
+    venue: "University Junior Project",
+    status: "Completed",
+    collaborators: "Main contributor",
     summary:
-      "Explain your contribution, the tools you used, and how the work advanced the larger research goal.",
+      "A machine learning study investigating the correlation between Big Five personality traits and language on social media. I collected questionnaire responses and real user posts, trained a model to predict personality from text, and used the results to explore how recognizable personality patterns appear in global literature. The project connected psychological measurement, Chinese-language NLP, and interpretive analysis in one end-to-end research workflow.",
     question:
-      "Explain the practical or theoretical question that the project is designed to investigate.",
+      "Can we build a reliable model to predict personality based on social media text? The project began with the observation that many peers use social media as a personal diary, leaving behind a record of everyday language, opinions, and habits. This raised a broader question: can those linguistic traces provide meaningful signals about the Big Five dimensions of openness, conscientiousness, extraversion, agreeableness, and neuroticism without reducing a person to a single label?",
     method:
-      "Outline your responsibilities, research process, tools, and how you collaborated with the wider team.",
+      "I collected BFI-2 questionnaire responses from 150 participants and paired each response with up to 50 recent Weibo posts. After scoring and labeling the five OCEAN traits, I cleaned the Chinese text with pyhanlp.harvesttext and tokenized it with Jieba. I then framed each trait as a binary classification task, compared five classifiers and six baseline models, and fine-tuned a Chinese BERT model with Hugging Face and scikit-learn workflows. Weekly feedback from my professor and peers helped refine the data pipeline, model comparison, and testing scope.",
     result:
-      "Describe the current output, next experiment, publication goal, or demonstrated impact of the work.",
-    keywords: ["Research", "Collaboration", "Analysis"],
-    links: [{ label: "Project overview", href: "#" }],
+      "The project produced a functional personality-prediction tool and a set of visual analyses covering label distributions, word counts, and model performance. I also used the predictions to examine literary characters such as Mr. Darcy and Elizabeth Bennet, testing how a data-driven lens might complement close reading. The evaluation showed a useful starting point for personality inference while revealing important next steps: broader and more balanced data, stronger validation, clearer communication of uncertainty, and a more engaging app-based presentation.",
+    keywords: ["Personality detection", "Big Five / OCEAN", "Social media NLP", "Machine learning", "Chinese BERT"],
+    links: [],
+    visuals: {
+      hero: "/assets/research/personality-detection-workflow.jpg",
+      question: "/assets/research/personality-detection-data-collection.png",
+      method: "/assets/research/personality-detection-models.png",
+      finding: "/assets/research/personality-detection-finding.png",
+    },
   },
 ] satisfies ResearchItem[];
 
@@ -254,60 +347,60 @@ export const experience = [
 
 export const portfolioItems = [
   {
-    slug: "visual-study",
-    title: "Visual Study 01",
+    slug: "watercolor-architecture",
+    title: "Watercolor Architecture",
     category: "Design",
-    year: "2026",
+    year: "Undated",
     tone: "blue",
     summary:
-      "A visual system exploring rhythm, hierarchy, and playful ways to organize information.",
+      "A watercolor series studying Chinese gates, red courtyards, layered roofs, and the color relationships that make architectural spaces feel lived in.",
     context:
-      "Introduce the brief, audience, constraints, and the observation that led you to begin this work.",
+      "The series began with close observation of traditional architecture. I focused on thresholds, rooflines, painted surfaces, and small shifts of color rather than treating each building as a neutral document.",
     process:
-      "Describe sketches, references, iterations, and the decisions that shaped the final visual language.",
-    tools: ["Figma", "Illustrator", "Prototyping"],
+      "I worked from observed scenes and built each image through layered washes, ink-like marks, and concentrated color accents. Repeating architectural details became a way to study rhythm, depth, and framing.",
+    tools: ["Watercolor", "Ink", "Observational drawing"],
   },
   {
-    slug: "field-notes",
-    title: "Field Notes",
-    category: "Photography",
-    year: "2026",
+    slug: "architectural-line-studies",
+    title: "Architectural Line Studies",
+    category: "Design",
+    year: "Undated",
     tone: "mint",
     summary:
-      "An observational photo series about overlooked details, quiet routines, and a sense of place.",
+      "A collection of pen-and-ink drawings exploring campus buildings, Gothic churches, sculpture, and the visual structure of places passed through.",
     context:
-      "Explain where the series was made and the question or visual theme that connects the photographs.",
+      "These drawings use architecture as a subject for attention and memory. The work moves between a campus building, Gothic facades, sculptural forms, and travel-related scenes.",
     process:
-      "Describe how you selected locations, worked with light, and edited the sequence into a coherent story.",
-    tools: ["Digital photography", "Lightroom", "Sequencing"],
+      "I sketched directly from reference, building forms with contour, cross-hatching, repeated windows, and directional lines. The loose marks preserve the decisions and corrections made while looking.",
+    tools: ["Pen and ink", "Sketchbook", "Architectural observation"],
   },
   {
-    slug: "moving-stories",
-    title: "Moving Stories",
-    category: "Video",
-    year: "2025",
+    slug: "whale-watching",
+    title: "Whale Watching",
+    category: "Design",
+    year: "Undated",
     tone: "yellow",
     summary:
-      "A short motion experiment combining interviews, typography, and environmental sound.",
+      "A digital painting pairing a blue coastal landscape with a small whale, documented alongside the studio setup where the painting was made.",
     context:
-      "Introduce the people, subject, or message behind the piece and the intended viewing context.",
+      "The piece studies scale and distance: a broad landscape establishes a calm field while the whale creates a small point of movement and attention.",
     process:
-      "Explain the story structure, filming approach, sound decisions, and key editing experiments.",
-    tools: ["Premiere Pro", "After Effects", "Sound"],
+      "I developed the image through broad digital color fields, layered water and land shapes, and a carefully placed subject. The accompanying studio photograph keeps the finished image connected to the physical act of making.",
+    tools: ["Digital painting", "Color studies", "Studio documentation"],
   },
   {
-    slug: "process-journal",
-    title: "Process Journal",
-    category: "Writing",
-    year: "2025",
+    slug: "calligraphy-practice",
+    title: "Calligraphy Practice",
+    category: "Design",
+    year: "Undated",
     tone: "coral",
     summary:
-      "Short essays reflecting on research practice, creative work, and lessons from building in public.",
+      "A practice-led collection of Chinese calligraphy, from repeated character studies to red New Year couplets arranged across the studio floor.",
     context:
-      "Describe the purpose of the journal and the themes that recur across the writing.",
+      "The work treats writing as both language and movement. Repetition makes spacing, pressure, and the changing weight of each stroke visible.",
     process:
-      "Explain how notes become essays and how writing supports your wider research and creative practice.",
-    tools: ["Writing", "Editing", "Documentation"],
+      "I moved between gray practice sheets and saturated red couplets, comparing rhythm, balance, and composition across different formats. The process values variation and gradual control over uniformity.",
+    tools: ["Chinese calligraphy", "Brush and ink", "Composition"],
   },
 ] satisfies PortfolioItem[];
 

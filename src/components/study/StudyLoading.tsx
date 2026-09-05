@@ -83,7 +83,7 @@ export function StudyLoadingScreen({ onRetry }: {
             <button type="button" onClick={onRetry}>Try the 3D study again</button>
           </div>}
           <nav className="study-loading-links" aria-label="Explore without 3D">
-            <Link href="/projects">Projects</Link><Link href="/teaching">Teaching</Link><Link href="/research">Research</Link><Link href="/experience">Experience</Link><Link href="/portfolio">Portfolio</Link>
+            <Link href="/teaching">Teaching</Link><Link href="/?view=research">Research</Link><Link href="/experience">Experience</Link><Link href="/portfolio">Portfolio</Link>
           </nav>
         </>}
       </div>

@@ -10,26 +10,10 @@ const researchFolders = [
   {
     href: `/research/${research[0].slug}`,
     index: "01",
-    title: "Research papers",
+    title: research[0].title,
     year: research[0].year,
     note: research[0].venue,
     summary: research[0].summary,
-  },
-  {
-    href: `/research/${research[1].slug}`,
-    index: "02",
-    title: "Ongoing studies",
-    year: research[1].year,
-    note: research[1].venue,
-    summary: research[1].summary,
-  },
-  {
-    href: "/research",
-    index: "03",
-    title: "Research archive",
-    year: "INDEX",
-    note: "Papers · Projects · Notes",
-    summary: "Browse the complete research index, from published work to questions still in progress.",
   },
 ];
 

@@ -1,9 +1,9 @@
 const CAPTIONS = [
-  "Seealpsee",
-  "K2",
-  "The North Face",
-  "Mount Cook",
-  "Mount Everest",
+  "Chinese Gate Watercolor",
+  "Campus Architecture Study",
+  "Gothic Cathedral Drawing",
+  "Whale Watching",
+  "Chinese Calligraphy Study",
 ];
 
 export function home() {
@@ -16,7 +16,7 @@ export function home() {
 
   return `
     <section data-page="main" class="page page-main">
-      <h1 class="page-title">Selected</h1>
+      <h1 class="page-title">Art Projects</h1>
       <div class="carousel">${slots}</div>
     </section>
   `;

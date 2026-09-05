@@ -24,7 +24,7 @@ import { PhoneGuestbook } from "@/components/study/PhoneGuestbook";
 import { preloadPortfolio } from "@/components/portfolio/preloadPortfolio";
 import { ExperienceCards } from "./ExperienceCards";
 import { ResearchFolders } from "./ResearchFolders";
-import { useLaptopFolderTexture } from "./useLaptopFolderTexture";
+import { projectFolderLayouts, useLaptopFolderTexture } from "./useLaptopFolderTexture";
 import { StudyModelSlot, StudyAssetBoundary } from "@/components/study/StudyModel";
 import { studyModelConfigs } from "@/components/study/studyModels";
 import { StudyDiagnostics } from "./StudyDiagnostics";
@@ -1358,10 +1358,10 @@ function RetroLaptop({
             toneMapped={false}
           />
         </mesh>
-        {focused && [-0.394, 0, 0.394].map((x, index) => (
+        {focused && projectFolderLayouts.slice(0, projects.length).map((layout, index) => (
           <mesh
             key={index}
-            position={[x, 0.515, 0.19]}
+            position={[layout.screenX, layout.screenY, 0.19]}
             onClick={(event) => handleProjectClick(event, index)}
             onPointerEnter={(event) => {
               event.stopPropagation();
@@ -1369,7 +1369,7 @@ function RetroLaptop({
             }}
             onPointerLeave={() => setHoveredProject(null)}
           >
-            <planeGeometry args={[0.323, 0.348]} />
+            <planeGeometry args={[0.45, 0.25]} />
             <meshBasicMaterial
               depthWrite={false}
               opacity={0}
@@ -1685,7 +1685,11 @@ function StudySceneContent() {
   const [focus, setFocus] = useState<Point | null>(null);
   const [entering, setEntering] = useState(false);
   const [bookEntryStage, setBookEntryStage] = useState<"idle" | "focus" | "zoom">("idle");
-  const [activeView, setActiveView] = useState<"computer" | "drawerResearch" | "experience" | "portfolio" | "phone" | "teachingBook" | "studentCard" | null>(null);
+  const [activeView, setActiveView] = useState<"computer" | "drawerResearch" | "experience" | "portfolio" | "phone" | "teachingBook" | "studentCard" | null>(() => {
+    if (typeof window === "undefined") return null;
+    const view = new URLSearchParams(window.location.search).get("view");
+    return view === "computer" ? "computer" : view === "research" ? "drawerResearch" : null;
+  });
   const overviewViewApiRef = useRef<OverviewViewApi | null>(null);
   const entryTimersRef = useRef<number[]>([]);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -1699,10 +1703,16 @@ function StudySceneContent() {
   }, []);
   useEffect(() => {
     if (scenePhase !== "ready") return;
+    if (activeView !== "computer" && activeView !== "drawerResearch") return;
+
+    overviewViewApiRef.current?.capture();
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [activeView, scenePhase]);
+  useEffect(() => {
+    if (scenePhase !== "ready") return;
     const timer = window.setTimeout(() => {
       router.prefetch("/portfolio");
-      router.prefetch("/projects");
-      router.prefetch("/research");
+      router.prefetch("/?view=research");
       projects.forEach((project) => router.prefetch(`/projects/${project.slug}`));
     }, 700);
     return () => window.clearTimeout(timer);

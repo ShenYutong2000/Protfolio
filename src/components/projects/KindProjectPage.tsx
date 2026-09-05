@@ -17,6 +17,7 @@ type Panel = {
   buttonHref: string;
   buttonTone: string;
   backgroundPosition: string;
+  image?: string;
 };
 
 const panelBackgrounds = ["#f9ffe7", "#edf9ff", "#ffecf2", "#ffe8db"];
@@ -174,8 +175,9 @@ function ProjectBoard({ project, panels }: { project: Project; panels: Panel[] }
                 data-panel={panel.key}
                 key={panel.key}
                 style={{
-                  backgroundImage: `url(/assets/projects/${project.slug}-board.png)`,
+                  backgroundImage: `url(${panel.image ?? `/assets/projects/${project.slug}-board.png`})`,
                   backgroundPosition: panel.backgroundPosition,
+                  backgroundSize: "200% 200%",
                 }}
               />
             ))}
@@ -189,46 +191,51 @@ function ProjectBoard({ project, panels }: { project: Project; panels: Panel[] }
 }
 
 export function KindProjectPage({ project, nextProject }: { project: Project; nextProject: Project }) {
+  const caseStudy = project.caseStudy ?? {};
   const panels: Panel[] = [
     {
       key: "overview",
-      eyebrow: "Overview",
+      eyebrow: caseStudy.overview?.eyebrow ?? "Overview",
       heading: project.title,
       body: project.summary,
-      buttonLabel: "Back to Projects",
-      buttonHref: "/projects",
+      buttonLabel: "Back to computer",
+      buttonHref: "/?view=computer",
       buttonTone: panelTones[0],
       backgroundPosition: panelPositions[0],
+      image: caseStudy.overview?.image,
     },
     {
       key: "challenge",
-      eyebrow: "Challenge",
-      heading: "Start with the question",
+      eyebrow: caseStudy.challenge?.eyebrow ?? "Challenge",
+      heading: caseStudy.challenge?.heading ?? "Start with the question",
       body: project.challenge,
       buttonLabel: "See the approach",
       buttonHref: "#approach",
       buttonTone: panelTones[1],
       backgroundPosition: panelPositions[1],
+      image: caseStudy.challenge?.image,
     },
     {
       key: "approach",
-      eyebrow: "Approach",
-      heading: "Make the path easier to follow",
+      eyebrow: caseStudy.approach?.eyebrow ?? "Approach",
+      heading: caseStudy.approach?.heading ?? "Make the path easier to follow",
       body: project.approach,
       buttonLabel: "See the outcome",
       buttonHref: "#outcome",
       buttonTone: panelTones[2],
       backgroundPosition: panelPositions[2],
+      image: caseStudy.approach?.image,
     },
     {
       key: "outcome",
-      eyebrow: "Outcome",
-      heading: "Leave more room to think",
+      eyebrow: caseStudy.outcome?.eyebrow ?? "Outcome",
+      heading: caseStudy.outcome?.heading ?? "Leave more room to think",
       body: project.outcome,
       buttonLabel: `Next: ${nextProject.title}`,
       buttonHref: `/projects/${nextProject.slug}`,
       buttonTone: panelTones[3],
       backgroundPosition: panelPositions[3],
+      image: caseStudy.outcome?.image,
     },
   ];
 

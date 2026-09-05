@@ -15,7 +15,7 @@ export class GalleryRenderer {
   init() {
     this.layer = document.createElement('div');
     this.layer.id = 'gallery-images';
-    this.layer.setAttribute('aria-label', 'Portfolio photographs');
+    this.layer.setAttribute('aria-label', 'Portfolio art projects');
     for (let i = 0; i < images.length; i++) {
       const image = images[i];
       const el = document.createElement('img');

@@ -114,9 +114,11 @@ function drawProjectArtwork(
 function PixelProjectVisual({
   caption,
   variant,
+  image,
 }: {
   caption: string;
   variant: number;
+  image?: string;
 }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -142,6 +144,23 @@ function PixelProjectVisual({
     let inRenderRange = false;
     let sourceDirty = true;
     let hasPainted = false;
+    let imageReady = false;
+    let imageFailed = false;
+    const sourceImage = image ? new Image() : null;
+
+    if (sourceImage) {
+      sourceImage.onload = () => {
+        imageReady = true;
+        sourceDirty = true;
+        wake();
+      };
+      sourceImage.onerror = () => {
+        imageFailed = true;
+        sourceDirty = true;
+        wake();
+      };
+      sourceImage.src = image ?? "";
+    }
 
     const paint = () => {
       const rect = wrap.getBoundingClientRect();
@@ -153,7 +172,24 @@ function PixelProjectVisual({
         canvas.height = height;
         source.width = width;
         source.height = height;
-        drawProjectArtwork(sourceContext, width, height, palette, variant % 3);
+        if (sourceImage && !imageFailed) {
+          if (!imageReady) return;
+          sourceContext.fillStyle = "#fff";
+          sourceContext.fillRect(0, 0, width, height);
+          const imageRatio = sourceImage.naturalWidth / sourceImage.naturalHeight;
+          const canvasRatio = width / height;
+          const drawWidth = imageRatio > canvasRatio ? width : height * imageRatio;
+          const drawHeight = imageRatio > canvasRatio ? width / imageRatio : height;
+          sourceContext.drawImage(
+            sourceImage,
+            (width - drawWidth) / 2,
+            (height - drawHeight) / 2,
+            drawWidth,
+            drawHeight,
+          );
+        } else {
+          drawProjectArtwork(sourceContext, width, height, palette, variant % 3);
+        }
         sourceDirty = false;
       }
 
@@ -244,12 +280,16 @@ function PixelProjectVisual({
 
     return () => {
       window.cancelAnimationFrame(frame);
+      if (sourceImage) {
+        sourceImage.onload = null;
+        sourceImage.onerror = null;
+      }
       resizeObserver.disconnect();
       intersectionObserver.disconnect();
       window.removeEventListener("scroll", onScroll);
       media.removeEventListener("change", onMotionChange);
     };
-  }, [variant]);
+  }, [image, variant]);
 
   return (
     <figure className="pixel-project-figure">
@@ -271,28 +311,34 @@ export function ResearchPixelPage({
   entryType: string;
 }) {
   const projectNumber = Math.max(0, Number(project.index) - 1);
+  const hasNextResearch = nextProject.slug !== project.slug;
   const sections = [
-    { label: "Question", title: "What the research asks", body: project.challenge },
-    { label: "Method", title: "How the question was investigated", body: project.approach },
-    { label: "Finding", title: "What the work contributes", body: project.outcome },
+    { label: "Question", title: "What the research asks", body: project.challenge, image: project.caseStudy?.challenge?.image },
+    { label: "Method", title: "How the question was investigated", body: project.approach, image: project.caseStudy?.approach?.image },
+    { label: "Finding", title: "What the work contributes", body: project.outcome, image: project.caseStudy?.outcome?.image },
   ];
 
   return (
     <main className="pixel-project-page">
       <nav className="pixel-project-nav" aria-label="Research navigation">
-        <Link href="/research">Research / {project.index}</Link>
+        <Link className="pixel-project-back" href="/?view=research">
+          <ArrowLeft size={13} aria-hidden="true" /> Back to research
+        </Link>
         <Link href="/" className="pixel-project-home">
-          <ArrowLeft size={13} aria-hidden="true" /> Study
+          Study
         </Link>
-        <Link href={`/research/${nextProject.slug}`}>
-          Next research <ArrowUpRight size={13} aria-hidden="true" />
-        </Link>
+        {hasNextResearch ? (
+          <Link href={`/research/${nextProject.slug}`}>
+            Next research <ArrowUpRight size={13} aria-hidden="true" />
+          </Link>
+        ) : <span aria-hidden="true" />}
       </nav>
 
       <header className="pixel-project-hero">
         <PixelProjectVisual
           caption={`${project.meta} — ${project.year}`}
           variant={projectNumber}
+          image={project.caseStudy?.overview?.image}
         />
         <div className="pixel-project-title">
           <p>{project.year} / {entryType}</p>
@@ -316,6 +362,7 @@ export function ResearchPixelPage({
             <PixelProjectVisual
               caption={`${String(index + 1).padStart(2, "0")} — ${section.label}`}
               variant={projectNumber + index + 1}
+              image={section.image}
             />
             <div className="pixel-project-copy">
               <p>{String(index + 1).padStart(2, "0")} / {section.label}</p>
@@ -342,11 +389,13 @@ export function ResearchPixelPage({
             ))}
           </div>
         )}
-        <Link className="pixel-project-next" href={`/research/${nextProject.slug}`}>
-          <span>Next research / {nextProject.index}</span>
-          <strong>{nextProject.title}</strong>
-          <ArrowUpRight size={36} aria-hidden="true" />
-        </Link>
+        {hasNextResearch && (
+          <Link className="pixel-project-next" href={`/research/${nextProject.slug}`}>
+            <span>Next research / {nextProject.index}</span>
+            <strong>{nextProject.title}</strong>
+            <ArrowUpRight size={36} aria-hidden="true" />
+          </Link>
+        )}
       </footer>
     </main>
   );
