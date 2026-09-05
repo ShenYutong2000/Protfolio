@@ -11,7 +11,7 @@ import {
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { useStudyLoading } from "./StudyLoading";
-import { assetRequestUrl } from "./studyLoadingState";
+import { assetRequestUrl, isCriticalAsset } from "./studyLoadingState";
 import { studyModelLoader } from "./studyLoaders";
 
 export type StudyPoint = [number, number, number];
@@ -168,7 +168,7 @@ export function StudyModelSlot({
   const store = useStudyLoading();
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
   const entry = snapshot.entries[config.src];
-  if (!config.enabled || !entry || entry.status === "skipped" || (!entry.required && snapshot.phase !== "ready")) return null;
+  if (!config.enabled || !entry || entry.status === "skipped" || (!isCriticalAsset(entry) && (!snapshot.backgroundReady || snapshot.phase !== "ready"))) return null;
 
   return (
     <StudyAssetBoundary

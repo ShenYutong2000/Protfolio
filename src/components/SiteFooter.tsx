@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { navigation, siteProfile } from "@/data/content";
+import { navigation, siteProfile } from "@/data/profile";
 
 export function SiteFooter() {
   return (

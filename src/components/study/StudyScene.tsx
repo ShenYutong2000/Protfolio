@@ -9,6 +9,7 @@ import {
   Suspense,
   type MutableRefObject,
 } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
@@ -19,20 +20,24 @@ import {
 } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import { education, projects, siteProfile } from "@/data/content";
-import { PhoneGuestbook } from "@/components/study/PhoneGuestbook";
+import { education } from "@/data/experience";
+import { projects } from "@/data/projects";
+import { siteProfile } from "@/data/profile";
 import { preloadPortfolio } from "@/components/portfolio/preloadPortfolio";
-import { ExperienceCards } from "./ExperienceCards";
-import { ResearchFolders } from "./ResearchFolders";
 import { projectFolderLayouts, useLaptopFolderTexture } from "./useLaptopFolderTexture";
 import { StudyModelSlot, StudyAssetBoundary } from "@/components/study/StudyModel";
 import { studyModelConfigs } from "@/components/study/studyModels";
 import { StudyDiagnostics } from "./StudyDiagnostics";
-import { StudentCardDialog } from "./StudentCardDialog";
 import { studyAssets, studyTextures } from "./studyAssets";
 import { useStudyLoading, useStudyLoadingSnapshot } from "./StudyLoading";
 import { assetRequestUrl } from "./studyLoadingState";
 import { preloadStudyAssets, StudyTexturePreparation, StudyScenePreparation } from "./StudyPreparation";
+import { createStudyRenderer } from "./createStudyRenderer";
+
+const ExperienceCards = dynamic(() => import("./ExperienceCards").then((module) => module.ExperienceCards), { ssr: false });
+const PhoneGuestbook = dynamic(() => import("./PhoneGuestbook").then((module) => module.PhoneGuestbook), { ssr: false });
+const ResearchFolders = dynamic(() => import("./ResearchFolders").then((module) => module.ResearchFolders), { ssr: false });
+const StudentCardDialog = dynamic(() => import("./StudentCardDialog").then((module) => module.StudentCardDialog), { ssr: false });
 
 const ROOM_SIZE = 8.2;
 const FLOOR_SIZE = ROOM_SIZE + 0.2;
@@ -1586,7 +1591,7 @@ function StudyWorld({
 
 export function StudyScene() {
   const store = useStudyLoading();
-  const { phase } = useStudyLoadingSnapshot();
+  const { phase, run } = useStudyLoadingSnapshot();
   useEffect(() => {
     store.configure(studyAssets);
     preloadStudyAssets(store, false);
@@ -1594,8 +1599,25 @@ export function StudyScene() {
   useEffect(() => {
     if (phase !== "ready") return;
     const timer = window.setTimeout(preloadPortfolio, 1400);
-    return () => window.clearTimeout(timer);
-  }, [phase]);
+    let idleId: number | undefined;
+    let backgroundTimer: number | undefined;
+    const release = () => {
+      preloadStudyAssets(store, true);
+      store.releaseBackground(run);
+    };
+    const requestIdleCallback = (window as Window & { requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number }).requestIdleCallback;
+    if (requestIdleCallback) {
+      idleId = requestIdleCallback(release, { timeout: 900 });
+    } else {
+      backgroundTimer = window.setTimeout(release, 450);
+    }
+    return () => {
+      window.clearTimeout(timer);
+      const cancelIdleCallback = (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback;
+      if (idleId !== undefined) cancelIdleCallback?.(idleId);
+      if (backgroundTimer !== undefined) window.clearTimeout(backgroundTimer);
+    };
+  }, [phase, run, store]);
   if (phase === "module" || phase === "unavailable") return null;
   return <StudySceneContent />;
 }
@@ -1610,77 +1632,7 @@ function StudySceneContent() {
     alpha?: boolean;
     antialias?: boolean;
     powerPreference?: WebGLPowerPreference;
-  }) => {
-    // Fiber awaits custom renderer factories. Overlapping configuration passes
-    // must reuse one renderer; two renderers cannot safely share this canvas.
-    if (renderer.current) return Promise.resolve(renderer.current);
-    if (rendererSetup.current) return rendererSetup.current;
-
-    rendererSetup.current = (async () => {
-      const canvas = defaults.canvas as HTMLCanvasElement;
-      const forceWebGpu = new URLSearchParams(window.location.search).has("webgpu");
-      const preferModernRenderer = forceWebGpu || /Edg\//.test(navigator.userAgent);
-      const contextAttributes: WebGLContextAttributes = {
-        alpha: false,
-        antialias: true,
-        depth: true,
-        failIfMajorPerformanceCaveat: false,
-        // Let the browser choose the stable adapter. Forcing the discrete GPU can
-        // make WebGL2 creation fail on Windows laptops with hybrid graphics.
-        powerPreference: "default",
-        premultipliedAlpha: true,
-        preserveDrawingBuffer: false,
-        stencil: false,
-      };
-
-      // Ask the actual Fiber canvas for its context before constructing Three's
-      // renderer. If WebGL is blocked, Three never installs its creation-error
-      // listener and therefore cannot turn a supported fallback into a dev-overlay
-      // error. Reusing this context also avoids briefly allocating two GPU contexts.
-      const context = !preferModernRenderer && typeof canvas.getContext === "function"
-        ? canvas.getContext("webgl2", contextAttributes) as WebGL2RenderingContext | null
-          ?? canvas.getContext("webgl2") as WebGL2RenderingContext | null
-        : null;
-
-      if (context) {
-        try {
-          return new THREE.WebGLRenderer({
-            canvas,
-            ...contextAttributes,
-            context,
-          });
-        } catch {
-          // Continue to the WebGPU backend below.
-        }
-      }
-
-      // The modern renderer uses WebGPU when available and otherwise owns a
-      // separate WebGL2 backend with more conservative setup. This second path
-      // is useful on Edge installations that reject the classic renderer.
-      try {
-        const { WebGPURenderer } = await import("three/webgpu");
-        const webGpuRenderer = new WebGPURenderer({
-          alpha: false,
-          antialias: true,
-          canvas,
-        });
-        await webGpuRenderer.init();
-        return webGpuRenderer as unknown as THREE.WebGLRenderer;
-      } catch {
-        // The accessible non-GPU experience below remains available.
-      }
-
-      store.fail("3D graphics are unavailable on this device.", true);
-      // Fiber awaits async renderer factories. Keeping this promise pending
-      // lets the accessible fallback own the UI without an unhandled rejection.
-      return new Promise<THREE.WebGLRenderer>(() => undefined);
-    })();
-
-    rendererSetup.current.then((value) => {
-      renderer.current = value;
-    });
-    return rendererSetup.current;
-  }, [store]);
+  }) => createStudyRenderer(store, renderer, rendererSetup, defaults), [store]);
   const router = useRouter();
   const [focus, setFocus] = useState<Point | null>(null);
   const [entering, setEntering] = useState(false);

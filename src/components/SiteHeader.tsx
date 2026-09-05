@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Download } from "lucide-react";
-import { navigation, siteProfile } from "@/data/content";
+import { navigation, siteProfile } from "@/data/profile";
 
 export function SiteHeader() {
   return (

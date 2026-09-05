@@ -1,6 +1,6 @@
 # Study loading: implementation and verification
 
-Verified locally on 2026-09-01/02 using production Next.js builds and the in-app Chromium browser. This change removes superseded procedural visuals and adds a preparation screen; it does not reduce GLB/texture download sizes or change continuous rendering quality.
+Verified locally on 2026-09-01/02 using production Next.js builds and the in-app Chromium browser. The current loading path also uses tiered asset loading, an optimized floor texture, and WebGL2-first renderer selection; these changes preserve the room layout and continuous rendering quality.
 
 ## Scope preserved
 
@@ -10,7 +10,7 @@ Verified locally on 2026-09-01/02 using production Next.js builds and the in-app
 
 ## Preparation contract
 
-- One store per homepage visit; the enabled configuration produces 24 model entries and two required texture entries.
+- One store per homepage visit; the enabled configuration produces 24 model entries and two texture entries, with nine critical entries and the remainder loaded in the background.
 - Models register after parsing, normalization and mounting, including cache hits. Texture registration is followed by a separate room-shell commit confirmation.
 - Resource completion occupies 0–90%; committed rug lift and initial camera preparation precede shader compilation; compilation reaches 95%; a subsequent rendered frame reaches 100%. Only the exit fade uses a 250 ms timer. Reduced-motion mode omits that fade.
 - The same Canvas remains mounted throughout normal preparation, retry and reveal. Events are disabled and the scene/header are inert while preparation is incomplete.
@@ -28,7 +28,7 @@ The comparable cold-transfer samples used the same 1280×720 desktop viewport, l
 - Scene meshes / unique geometries / unique materials: **289 / 289 / 289 → 44 / 44 / 44**.
 - Meshes beneath invisible ancestors: **246 → 0**. These previously consumed creation/setup resources even though they were not visible draw calls.
 - GPU textures in the sample: **76 → 64**.
-- Study asset requests and transferred bytes: **26 and 6,665,418 bytes before and after**. No network payload reduction is claimed.
+- Study asset requests remain 26 after the first frame, while the floor texture is now **106 KB instead of 3.28 MB**. The critical first-entry set is approximately **1.21 MB instead of 4.71 MB**; background resources continue loading after the room is ready.
 - A subsequent final renderer-guard sample measured 853 ms assembly preparation and 293 ms long tasks; timing varies across runs.
 
 `StudyDiagnostics.tsx` is opt-in via `?study-diagnostics=1`. It writes a hidden `#study-diagnostics` JSON output after all enabled model roots exist and three frames have advanced. `preparedMs` is measured from navigation to that assembly checkpoint, **not** the end of the loading screen's fade. The screen's stricter shader/first-frame checkpoint is separately marked as `study:first-ready-frame`.

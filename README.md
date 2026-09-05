@@ -1,8 +1,7 @@
 # Interactive Study Portfolio
 
 An English-language personal portfolio built around an interactive 3D
-study-room concept. The room is rendered procedurally with React Three Fiber,
-so it does not depend on a large external model download.
+study-room concept. The room is rendered with React Three Fiber and a small set of optimized local models and textures.
 
 ## Run locally
 
@@ -16,10 +15,8 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Available pages
 
 - `/` — interactive study preview
-- `/about`
-- `/projects`
-- `/education`
-- `/research`
+- `/projects/:slug` — project case studies
+- `/research/:slug` — research case studies
 - `/experience`
 - `/portfolio`
 
@@ -27,19 +24,18 @@ The home page maps six interactive room objects to these content sections:
 portrait, computer, books, notebook, calendar, and camera. Text navigation
 remains available as an accessible fallback.
 
-Update placeholder content in `src/data/content.ts` and the individual page
-files before publishing.
+Update the focused files in `src/data/` and the individual page files before publishing.
 
 ## Content structure
 
-Most editable content lives in `src/data/content.ts`:
+Editable content is grouped by domain:
 
-- `siteProfile` — name, role, biography, contact details, and social links
-- `projects` — project summaries and full case-study sections
-- `education` — degrees, institutions, and achievements
-- `research` — papers, projects, methods, and findings
-- `experience` — roles, outcomes, and tools
-- `portfolioItems` — creative work, process notes, and media categories
+- `profile.ts` — name, role, biography, contact details, navigation, and social links
+- `projects.ts` — project summaries and full case-study sections
+- `experience.ts` — degrees, institutions, roles, outcomes, and tools
+- `research.ts` — papers, projects, methods, and findings
+- `portfolio.ts` — creative work, process notes, and media categories
+- `types.ts` — shared content types
 
 Projects, research entries, and portfolio items use a unique `slug` to create
 shareable detail pages. Replace placeholder `#` links before publishing.

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import * as THREE from "three";
-import { projects } from "@/data/content";
+import { projects } from "@/data/projects";
 
 export const projectFolderLayouts = [
   { canvasX: 64, canvasY: 58, screenX: -0.315, screenY: 0.614 },

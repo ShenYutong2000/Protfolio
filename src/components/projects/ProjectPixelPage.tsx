@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { useEffect, useRef } from "react";
-import type { Project } from "@/data/content";
+import type { Project } from "@/data/types";
 
 type Palette = {
   background: string;

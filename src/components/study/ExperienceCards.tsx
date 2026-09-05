@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import { ArrowLeft, ArrowRight, ArrowUpRight, BriefcaseBusiness, GraduationCap } from "lucide-react";
-import { experience } from "@/data/content";
+import { experience } from "@/data/experience";
 import { ObjectDialog } from "./ObjectDialog";
 import styles from "./ObjectDialog.module.css";
 

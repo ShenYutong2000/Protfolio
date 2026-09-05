@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { research } from "@/data/content";
+import { research } from "@/data/research";
 import { ObjectDialog } from "./ObjectDialog";
 import styles from "./ObjectDialog.module.css";
 

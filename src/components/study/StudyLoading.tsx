@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
-import { createStudyLoadingStore, loadingSummary, type StudyLoadingStore } from "./studyLoadingState";
+import { createStudyLoadingStore, isCriticalAsset, loadingSummary, type StudyLoadingStore } from "./studyLoadingState";
 const LoadingContext = createContext<StudyLoadingStore | null>(null);
 export function useStudyLoading() {
     const store = useContext(LoadingContext);
@@ -69,10 +69,10 @@ export function StudyLoadingScreen({ onRetry }: {
           <div className="study-loading-progress" role="progressbar" aria-label="Study preparation" aria-valuemin={0} aria-valuemax={100} aria-valuenow={summary.progress}>
             <div style={{ width: `${summary.progress}%` }}/>
           </div>
-          <div className="study-loading-numbers"><span>{summary.total ? `${summary.ready} of ${summary.total} items prepared${summary.skipped ? ` · ${summary.skipped} skipped` : ""}` : "Opening the study…"}</span><strong>{summary.progress}%</strong></div>
+          <div className="study-loading-numbers"><span>{summary.criticalTotal ? `${summary.criticalReady} of ${summary.criticalTotal} critical items prepared` : "Opening the study…"}</span><strong>{summary.progress}%</strong></div>
         </>}
         <p role="status" aria-live="polite">{message}</p>
-        {summary.errors.length > 0 && <ul className="study-loading-errors">{summary.errors.map((entry) => <li key={entry.src}>{entry.label}{entry.required ? " — required" : ""}</li>)}</ul>}
+        {summary.errors.length > 0 && <ul className="study-loading-errors">{summary.errors.map((entry) => <li key={entry.src}>{entry.label}{isCriticalAsset(entry) ? " — required" : ""}</li>)}</ul>}
         {slow && !ready && !unavailable && <p className="study-loading-slow">This is taking longer than usual. You can keep waiting or retry.</p>}
         {!unavailable && !ready && (slow || fatal || summary.errors.length > 0) && <div className="study-loading-actions">
           <button type="button" onClick={() => { setSlow(false); onRetry(); }}>Retry loading</button>

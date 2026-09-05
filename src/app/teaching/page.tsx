@@ -1,6 +1,6 @@
 import { BookOpen } from "lucide-react";
 import { SectionShell } from "@/components/SectionShell";
-import { education } from "@/data/content";
+import { education } from "@/data/experience";
 
 export const metadata = {
   title: "Teaching",

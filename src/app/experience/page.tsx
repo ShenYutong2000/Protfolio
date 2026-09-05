@@ -1,5 +1,5 @@
 import { SectionShell } from "@/components/SectionShell";
-import { experience } from "@/data/content";
+import { experience } from "@/data/experience";
 
 export const metadata = {
   title: "Experience",
