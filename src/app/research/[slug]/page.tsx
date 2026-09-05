@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ResearchPixelPage } from "@/components/projects/ProjectPixelPage";
-import type { Project } from "@/data/content";
-import { getResearchItem, research } from "@/data/content";
+import type { Project } from "@/data/types";
+import { getResearchItem, research } from "@/data/research";
 
 type ResearchPageProps = {
   params: Promise<{ slug: string }>;

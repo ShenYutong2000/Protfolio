@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Caveat, DM_Sans, Fraunces, Outfit } from "next/font/google";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { siteProfile } from "@/data/content";
+import { siteProfile } from "@/data/profile";
 import "./globals.css";
 
 const sans = DM_Sans({

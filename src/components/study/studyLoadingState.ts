@@ -3,6 +3,7 @@ export type StudyAsset = {
     label: string;
     kind: "model" | "texture";
     required: boolean;
+    loadTier?: "critical" | "background";
     dependsOn?: string;
 };
 export type AssetStatus = "pending" | "ready" | "error" | "skipped";
@@ -17,23 +18,30 @@ export type LoadingSnapshot = {
     run: number;
     message: string;
     shellReady: boolean;
+    backgroundReady: boolean;
 };
+export function isCriticalAsset(entry: Pick<StudyAsset, "required" | "loadTier">) {
+    return entry.loadTier === "critical" || entry.required;
+}
 export function loadingSummary(snapshot: LoadingSnapshot) {
     const entries = Object.values(snapshot.entries);
+    const criticalEntries = entries.filter(isCriticalAsset);
     const ready = entries.filter((entry) => entry.status === "ready").length;
+    const criticalReady = criticalEntries.filter((entry) => entry.status === "ready").length;
     const skipped = entries.filter((entry) => entry.status === "skipped").length;
     const errors = entries.filter((entry) => entry.status === "error");
     return {
         total: entries.length, ready, skipped, errors,
+        criticalTotal: criticalEntries.length, criticalReady,
         settled: entries.length > 0 && ready + skipped === entries.length,
-        canSkip: errors.length > 0 && entries.every((entry) => !entry.required || entry.status === "ready"),
+        canSkip: errors.length > 0 && entries.every((entry) => !isCriticalAsset(entry) || entry.status === "ready"),
         progress: snapshot.phase === "ready" ? 100 : snapshot.phase === "compiled" ? 95 :
-            entries.length ? Math.floor(90 * (ready + skipped) / entries.length) : 0,
+            criticalEntries.length ? Math.floor(90 * (criticalReady + criticalEntries.filter((entry) => entry.status === "skipped").length) / criticalEntries.length) : 0,
     };
 }
 // One store per mounted homepage. Cached assets still register in each new Canvas.
 export function createStudyLoadingStore() {
-    let snapshot: LoadingSnapshot = { entries: {}, phase: "module", run: 0, message: "", shellReady: false };
+    let snapshot: LoadingSnapshot = { entries: {}, phase: "module", run: 0, message: "", shellReady: false, backgroundReady: false };
     const listeners = new Set<() => void>();
     function publish(next: LoadingSnapshot) {
         snapshot = next;
@@ -62,10 +70,10 @@ export function createStudyLoadingStore() {
                 entry.status === "error" || entry.status === "pending"
                     ? { ...entry, status: "pending" as const, attempt: entry.attempt + 1 } : entry,
             ]));
-            publish({ ...snapshot, entries, phase: "loading", run: snapshot.run + 1, message: "", shellReady: false });
+            publish({ ...snapshot, entries, phase: "loading", run: snapshot.run + 1, message: "", shellReady: false, backgroundReady: false });
         },
         skipOptional(includePending = false) {
-            if (!Object.values(snapshot.entries).every((entry) => !entry.required || entry.status === "ready"))
+            if (!Object.values(snapshot.entries).every((entry) => !isCriticalAsset(entry) || entry.status === "ready"))
                 return;
             const entries = { ...snapshot.entries };
             for (const [src, entry] of Object.entries(entries)) {
@@ -82,7 +90,7 @@ export function createStudyLoadingStore() {
         advance(phase: "preparing" | "compiled" | "ready", run: number) {
             const previous = { preparing: "loading", compiled: "preparing", ready: "compiled" };
             const requiredReady = Object.values(snapshot.entries).length > 0
-                && Object.values(snapshot.entries).every((entry) => !entry.required || entry.status === "ready");
+                && Object.values(snapshot.entries).every((entry) => !isCriticalAsset(entry) || entry.status === "ready");
             if (snapshot.run !== run || !snapshot.shellReady || !requiredReady || snapshot.phase !== previous[phase])
                 return;
             publish({ ...snapshot, phase });
@@ -90,6 +98,10 @@ export function createStudyLoadingStore() {
         reportShellReady(run: number) {
             if (snapshot.run === run && !snapshot.shellReady)
                 publish({ ...snapshot, shellReady: true });
+        },
+        releaseBackground(run: number) {
+            if (snapshot.run === run && snapshot.phase === "ready" && !snapshot.backgroundReady)
+                publish({ ...snapshot, backgroundReady: true });
         },
         fail(message: string, unavailable = false) {
             const phase = unavailable ? "unavailable" : "error";

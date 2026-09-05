@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import "../styles/section.css";
+import "../styles/portfolio.css";
 
 export const metadata: Metadata = {
   title: "Portfolio",

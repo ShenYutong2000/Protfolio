@@ -3,9 +3,9 @@ import { test } from "node:test";
 import { createStudyLoadingStore, loadingSummary, assetRequestUrl } from "../src/components/study/studyLoadingState.ts";
 
 const assets = [
-  { src: "/desk.glb", label: "Desk", kind: "model", required: true },
-  { src: "/book.glb", label: "Book", kind: "model", required: false },
-  { src: "/cup.glb", label: "Cup", kind: "model", required: false, dependsOn: "/book.glb" },
+  { src: "/desk.glb", label: "Desk", kind: "model", required: true, loadTier: "critical" },
+  { src: "/book.glb", label: "Book", kind: "model", required: false, loadTier: "background" },
+  { src: "/cup.glb", label: "Cup", kind: "model", required: false, loadTier: "background", dependsOn: "/book.glb" },
 ];
 function create() { const store = createStudyLoadingStore(); store.configure(assets); return store; }
 test("progress cannot complete from an empty or partially ready scene", () => {
@@ -15,7 +15,7 @@ test("progress cannot complete from an empty or partially ready scene", () => {
   store.configure(assets);
   store.report("/desk.glb", 0, "ready");
   store.advance("ready", 0);
-  assert.equal(loadingSummary(store.getSnapshot()).progress, 30);
+  assert.equal(loadingSummary(store.getSnapshot()).progress, 90);
 });
 test("cached resources register once; ready is separate from asset completion", () => {
   const store = create();
@@ -79,6 +79,19 @@ test("fatal preparation failures remain blocked until retry", () => {
   store.retry();
   assert.equal(store.getSnapshot().phase, "loading");
   assert.equal(loadingSummary(store.getSnapshot()).ready, 3);
+});
+test("background assets release after the first ready frame without changing readiness", () => {
+  const store = create();
+  store.report("/desk.glb", 0, "ready");
+  store.reportShellReady(0);
+  store.advance("preparing", 0);
+  store.advance("compiled", 0);
+  store.advance("ready", 0);
+  assert.equal(store.getSnapshot().backgroundReady, false);
+  store.releaseBackground(0);
+  assert.equal(store.getSnapshot().backgroundReady, true);
+  store.report("/book.glb", 0, "error");
+  assert.equal(store.getSnapshot().phase, "ready");
 });
 test("repeated renderer failures do not trigger a rerender loop", () => {
   const store = create();

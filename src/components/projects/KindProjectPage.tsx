@@ -6,7 +6,7 @@ import { useLayoutEffect, useRef } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
-import type { Project } from "@/data/content";
+import type { Project } from "@/data/types";
 
 type Panel = {
   key: "overview" | "challenge" | "approach" | "outcome";

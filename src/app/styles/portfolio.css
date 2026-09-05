@@ -1,0 +1,194 @@
+.portfolio-template-host { position: fixed; inset: 0; width: 100%; height: 100dvh; background: white; z-index: 80; }
+.portfolio-template-frame { display: block; width: 100%; height: 100%; border: 0; }
+body:has(.portfolio-template-host) { background: white; overflow: hidden; }
+body:has(.portfolio-template-host) .site-header, body:has(.portfolio-template-host) .site-footer { display: none; }
+.portfolio-template-error { position: absolute; inset: 0; display: grid; place-content: center; gap: 18px; padding: 24px; background: white; color: #111; text-align: center; font: 14px system-ui, sans-serif; }
+.portfolio-template-error button, .portfolio-template-error a { padding: 10px; border: 1px solid #ccc; background: white; cursor: pointer; }
+
+.detail-page {
+  margin: 0 auto;
+  max-width: 1280px;
+  min-height: calc(100vh - 72px);
+  padding: 40px clamp(22px, 5vw, 72px) 100px;
+}
+
+.detail-hero {
+  margin: clamp(65px, 10vw, 130px) 0 60px;
+  max-width: 980px;
+}
+
+.detail-hero h1 {
+  font-family: var(--font-display), serif;
+  font-size: clamp(54px, 8vw, 112px);
+  font-weight: 480;
+  letter-spacing: -0.055em;
+  line-height: 0.94;
+  margin: 0;
+}
+
+.detail-hero > p:last-child {
+  color: var(--muted);
+  font-size: clamp(17px, 2vw, 23px);
+  line-height: 1.65;
+  margin: 35px 0 0;
+  max-width: 760px;
+}
+
+.detail-visual {
+  align-items: center;
+  aspect-ratio: 16 / 7;
+  background: var(--blue);
+  border-radius: 30px;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.detail-visual > span {
+  color: rgba(33, 56, 59, 0.75);
+  font-family: var(--font-display), serif;
+  font-size: clamp(54px, 11vw, 150px);
+  font-style: italic;
+  position: relative;
+  z-index: 2;
+}
+
+.detail-visual i {
+  background: rgba(255, 253, 246, 0.52);
+  border-radius: 50%;
+  height: 32%;
+  left: 11%;
+  position: absolute;
+  top: 13%;
+  width: 18%;
+}
+
+.detail-visual i:nth-of-type(2) {
+  border-radius: 30px;
+  height: 58%;
+  left: auto;
+  right: 8%;
+  top: 25%;
+  transform: rotate(13deg);
+  width: 25%;
+}
+
+.detail-visual i:nth-of-type(3) {
+  bottom: -19%;
+  height: 63%;
+  left: 33%;
+  top: auto;
+  width: 34%;
+}
+
+.detail-mint {
+  background: var(--mint);
+}
+
+.detail-yellow {
+  background: var(--yellow);
+}
+
+.detail-coral {
+  background: var(--coral);
+}
+
+.fact-grid {
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin: 0;
+}
+
+.fact-grid > div {
+  border-right: 1px solid var(--line);
+  padding: 26px 28px;
+}
+
+.fact-grid > div:first-child {
+  padding-left: 0;
+}
+
+.fact-grid > div:last-child {
+  border-right: 0;
+}
+
+.fact-grid dt {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.fact-grid dd {
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.detail-body {
+  display: grid;
+  gap: clamp(45px, 9vw, 120px);
+  grid-template-columns: 200px 1fr;
+  margin-top: 100px;
+}
+
+.detail-body aside {
+  align-self: start;
+  position: sticky;
+  top: 120px;
+}
+
+.detail-body aside ul {
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  line-height: 2.2;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.detail-sections section {
+  border-bottom: 1px solid var(--line);
+  padding: 0 0 70px;
+}
+
+.detail-sections section + section {
+  padding-top: 70px;
+}
+
+.detail-sections h2 {
+  font-family: var(--font-display), serif;
+  font-size: clamp(32px, 4.5vw, 58px);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  margin: 0 0 25px;
+}
+
+.detail-sections section > p:last-child {
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1.85;
+  margin: 0;
+  max-width: 760px;
+}
+
+.detail-footer {
+  align-items: flex-end;
+  display: flex;
+  justify-content: space-between;
+  margin: 70px 0 0 320px;
+}
+
+.detail-footer .primary-button {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+

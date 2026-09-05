@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DetailPage } from "@/components/DetailPage";
-import { getPortfolioItem, portfolioItems } from "@/data/content";
+import { getPortfolioItem, portfolioItems } from "@/data/portfolio";
 
 type PortfolioPageProps = {
   params: Promise<{ slug: string }>;
